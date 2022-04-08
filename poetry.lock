@@ -1,0 +1,165 @@
+[[package]]
+name = "anyio"
+version = "3.5.0"
+description = "High level compatibility layer for multiple asynchronous event loop implementations"
+category = "main"
+optional = false
+python-versions = ">=3.6.2"
+
+[package.dependencies]
+idna = ">=2.8"
+sniffio = ">=1.1"
+
+[package.extras]
+doc = ["packaging", "sphinx-rtd-theme", "sphinx-autodoc-typehints (>=1.2.0)"]
+test = ["coverage[toml] (>=4.5)", "hypothesis (>=4.0)", "pytest (>=6.0)", "pytest-mock (>=3.6.1)", "trustme", "contextlib2", "uvloop (<0.15)", "mock (>=4)", "uvloop (>=0.15)"]
+trio = ["trio (>=0.16)"]
+
+[[package]]
+name = "colorama"
+version = "0.4.4"
+description = "Cross-platform colored terminal text."
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+
+[[package]]
+name = "idna"
+version = "3.3"
+description = "Internationalized Domain Names in Applications (IDNA)"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[[package]]
+name = "loguru"
+version = "0.6.0"
+description = "Python logging made (stupidly) simple"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[package.dependencies]
+colorama = {version = ">=0.3.4", markers = "sys_platform == \"win32\""}
+win32-setctime = {version = ">=1.0.0", markers = "sys_platform == \"win32\""}
+
+[package.extras]
+dev = ["colorama (>=0.3.4)", "docutils (==0.16)", "flake8 (>=3.7.7)", "tox (>=3.9.0)", "pytest (>=4.6.2)", "pytest-cov (>=2.7.1)", "black (>=19.10b0)", "isort (>=5.1.1)", "Sphinx (>=4.1.1)", "sphinx-autobuild (>=0.7.1)", "sphinx-rtd-theme (>=0.4.3)"]
+
+[[package]]
+name = "sniffio"
+version = "1.2.0"
+description = "Sniff out which async library your code is running under"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[[package]]
+name = "uvloop"
+version = "0.16.0"
+description = "Fast implementation of asyncio event loop on top of libuv"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+dev = ["Cython (>=0.29.24,<0.30.0)", "pytest (>=3.6.0)", "Sphinx (>=4.1.2,<4.2.0)", "sphinxcontrib-asyncio (>=0.3.0,<0.4.0)", "sphinx-rtd-theme (>=0.5.2,<0.6.0)", "aiohttp", "flake8 (>=3.9.2,<3.10.0)", "psutil", "pycodestyle (>=2.7.0,<2.8.0)", "pyOpenSSL (>=19.0.0,<19.1.0)", "mypy (>=0.800)"]
+docs = ["Sphinx (>=4.1.2,<4.2.0)", "sphinxcontrib-asyncio (>=0.3.0,<0.4.0)", "sphinx-rtd-theme (>=0.5.2,<0.6.0)"]
+test = ["aiohttp", "flake8 (>=3.9.2,<3.10.0)", "psutil", "pycodestyle (>=2.7.0,<2.8.0)", "pyOpenSSL (>=19.0.0,<19.1.0)", "mypy (>=0.800)"]
+
+[[package]]
+name = "watchfiles"
+version = "0.12"
+description = "Simple, modern and high performance file watching and code reload in python."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+anyio = ">=3.0.0,<4"
+
+[[package]]
+name = "win32-setctime"
+version = "1.1.0"
+description = "A small Python utility to set file creation time on Windows"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[package.extras]
+dev = ["pytest (>=4.6.2)", "black (>=19.3b0)"]
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.8"
+content-hash = "4f6529e95d9b32cbec7bb0908475ff3b2bf0672dcca7a127c3e48e8691ea03e3"
+
+[metadata.files]
+anyio = [
+    {file = "anyio-3.5.0-py3-none-any.whl", hash = "sha256:b5fa16c5ff93fa1046f2eeb5bbff2dad4d3514d6cda61d02816dba34fa8c3c2e"},
+    {file = "anyio-3.5.0.tar.gz", hash = "sha256:a0aeffe2fb1fdf374a8e4b471444f0f3ac4fb9f5a5b542b48824475e0042a5a6"},
+]
+colorama = [
+    {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
+    {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
+]
+idna = [
+    {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
+    {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
+]
+loguru = [
+    {file = "loguru-0.6.0-py3-none-any.whl", hash = "sha256:4e2414d534a2ab57573365b3e6d0234dfb1d84b68b7f3b948e6fb743860a77c3"},
+    {file = "loguru-0.6.0.tar.gz", hash = "sha256:066bd06758d0a513e9836fd9c6b5a75bfb3fd36841f4b996bc60b547a309d41c"},
+]
+sniffio = [
+    {file = "sniffio-1.2.0-py3-none-any.whl", hash = "sha256:471b71698eac1c2112a40ce2752bb2f4a4814c22a54a3eed3676bc0f5ca9f663"},
+    {file = "sniffio-1.2.0.tar.gz", hash = "sha256:c4666eecec1d3f50960c6bdf61ab7bc350648da6c126e3cf6898d8cd4ddcd3de"},
+]
+uvloop = [
+    {file = "uvloop-0.16.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:6224f1401025b748ffecb7a6e2652b17768f30b1a6a3f7b44660e5b5b690b12d"},
+    {file = "uvloop-0.16.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:30ba9dcbd0965f5c812b7c2112a1ddf60cf904c1c160f398e7eed3a6b82dcd9c"},
+    {file = "uvloop-0.16.0-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:bd53f7f5db562f37cd64a3af5012df8cac2c464c97e732ed556800129505bd64"},
+    {file = "uvloop-0.16.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:772206116b9b57cd625c8a88f2413df2fcfd0b496eb188b82a43bed7af2c2ec9"},
+    {file = "uvloop-0.16.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:b572256409f194521a9895aef274cea88731d14732343da3ecdb175228881638"},
+    {file = "uvloop-0.16.0-cp37-cp37m-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:04ff57aa137230d8cc968f03481176041ae789308b4d5079118331ab01112450"},
+    {file = "uvloop-0.16.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3a19828c4f15687675ea912cc28bbcb48e9bb907c801873bd1519b96b04fb805"},
+    {file = "uvloop-0.16.0-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:e814ac2c6f9daf4c36eb8e85266859f42174a4ff0d71b99405ed559257750382"},
+    {file = "uvloop-0.16.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:bd8f42ea1ea8f4e84d265769089964ddda95eb2bb38b5cbe26712b0616c3edee"},
+    {file = "uvloop-0.16.0-cp38-cp38-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:647e481940379eebd314c00440314c81ea547aa636056f554d491e40503c8464"},
+    {file = "uvloop-0.16.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8e0d26fa5875d43ddbb0d9d79a447d2ace4180d9e3239788208527c4784f7cab"},
+    {file = "uvloop-0.16.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:6ccd57ae8db17d677e9e06192e9c9ec4bd2066b77790f9aa7dede2cc4008ee8f"},
+    {file = "uvloop-0.16.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:089b4834fd299d82d83a25e3335372f12117a7d38525217c2258e9b9f4578897"},
+    {file = "uvloop-0.16.0-cp39-cp39-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:98d117332cc9e5ea8dfdc2b28b0a23f60370d02e1395f88f40d1effd2cb86c4f"},
+    {file = "uvloop-0.16.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1e5f2e2ff51aefe6c19ee98af12b4ae61f5be456cd24396953244a30880ad861"},
+    {file = "uvloop-0.16.0.tar.gz", hash = "sha256:f74bc20c7b67d1c27c72601c78cf95be99d5c2cdd4514502b4f3eb0933ff1228"},
+]
+watchfiles = [
+    {file = "watchfiles-0.12-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:25448386a9460f513a0f45289c9ccd72f5d2a67c88807ee39d28628472a70bdf"},
+    {file = "watchfiles-0.12-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:2600b259dc216d7121b51f799b80cbb27443920cf91d74c87a0d397659179f92"},
+    {file = "watchfiles-0.12-cp310-cp310-manylinux_2_24_i686.whl", hash = "sha256:7b962538e109e70f8c7232c7518f95a9d850650f635cdc6f7822a9046e928d14"},
+    {file = "watchfiles-0.12-cp310-cp310-manylinux_2_24_x86_64.whl", hash = "sha256:e2d9c5ee04d3da4c3393dea7de739646a7da67ca87fe5f6eacf20fa47aef9221"},
+    {file = "watchfiles-0.12-cp310-cp310-win32.whl", hash = "sha256:717f8202e358d751fc811c6ccba5a8d19e16d84c3f91448d82dcfe4ba14349fd"},
+    {file = "watchfiles-0.12-cp310-cp310-win_amd64.whl", hash = "sha256:4d8a0aec717a14e6107babcf0d53b19cf341ca4947679783fc76e7afb154b7bc"},
+    {file = "watchfiles-0.12-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:e0d03db135f9827d76b53684b2d6fd8f916b55f00ae31e3b351494616c276dfe"},
+    {file = "watchfiles-0.12-cp37-cp37m-manylinux_2_24_i686.whl", hash = "sha256:b979461efb0950bdf73467e0ce556cc8243b74089218da282715a3147d96ba54"},
+    {file = "watchfiles-0.12-cp37-cp37m-manylinux_2_24_x86_64.whl", hash = "sha256:070b4405b3f6fb8efbd6920c9b185f643f19abda5af44fe861ea942bf4198567"},
+    {file = "watchfiles-0.12-cp37-cp37m-win32.whl", hash = "sha256:84f1ab85515cb9f2fc8d775d2658d7d9fd83878a7074862810400c392bce795a"},
+    {file = "watchfiles-0.12-cp37-cp37m-win_amd64.whl", hash = "sha256:5ae8dc1d3ad268e793f98a06e7c7239697a9f96e168b6497f597bfad1dd835c9"},
+    {file = "watchfiles-0.12-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:8b33d4140c7af67d08cd6443b26cd8f2dd41ccc0f59c2f6f37a285f7b6bb3412"},
+    {file = "watchfiles-0.12-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:c9a06ba08f0ca0dcc8bb79ce213a079a11a60808dd464c1940af9bcaba5bba48"},
+    {file = "watchfiles-0.12-cp38-cp38-manylinux_2_24_i686.whl", hash = "sha256:1a8ab59b81f86ce926df80396ea1b79e441fb10aed069656f21f1d429691953d"},
+    {file = "watchfiles-0.12-cp38-cp38-manylinux_2_24_x86_64.whl", hash = "sha256:0f0e6c4ea5d131495f2404021eefb5d5e774c11877456b35fc645a1e9a6c1e98"},
+    {file = "watchfiles-0.12-cp38-cp38-win32.whl", hash = "sha256:57aa5399d9a71843b920da6166dc8396254ac6acb6266c15d4a63d060d78dff3"},
+    {file = "watchfiles-0.12-cp38-cp38-win_amd64.whl", hash = "sha256:bef776fb46460592d8eecd0028f60dd39953bc911731f25dbc2cd9c66adbe6a3"},
+    {file = "watchfiles-0.12-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:5de85d010085479b3a02f7b33c0fb5307e87ba95afaf308623bc61d0849741ee"},
+    {file = "watchfiles-0.12-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:234010bb28dc8258184f289d30385a6255c9e84e0001d84ad357f3cc0cf79046"},
+    {file = "watchfiles-0.12-cp39-cp39-manylinux_2_24_i686.whl", hash = "sha256:34ee9a6fea8778688f2eebede9b57467fc44ac252d7f59b575b701b6dc836f4e"},
+    {file = "watchfiles-0.12-cp39-cp39-manylinux_2_24_x86_64.whl", hash = "sha256:4a6bc1516265994b4ada1a14906fa4f4d2cdf43b19dd886da5a9f9a1c576b94a"},
+    {file = "watchfiles-0.12-cp39-cp39-win32.whl", hash = "sha256:0dde3b3f849ea7fcddf6f57324925c814a01fb59626711463efd714614a1f8b7"},
+    {file = "watchfiles-0.12-cp39-cp39-win_amd64.whl", hash = "sha256:3baa80003ec031c583c906a618868712c8d9753a66087479d8f7d3fe56cf571b"},
+    {file = "watchfiles-0.12.tar.gz", hash = "sha256:962aa5fcc212fe4d838f9b28fcf70b6a5c850930fc4d389f444edb821d264110"},
+]
+win32-setctime = [
+    {file = "win32_setctime-1.1.0-py3-none-any.whl", hash = "sha256:231db239e959c2fe7eb1d7dc129f11172354f98361c4fa2d6d2d7e278baa8aad"},
+    {file = "win32_setctime-1.1.0.tar.gz", hash = "sha256:15cf5750465118d6929ae4de4eb46e8edae9a5634350c01ba582df868e932cb2"},
+]
