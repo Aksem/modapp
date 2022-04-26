@@ -1,18 +1,23 @@
-import asyncio
-import json
+import traceback
 from typing import Any, Dict
 
 import socketio
 from aiohttp import web
+from google.rpc import status_pb2
+from google.rpc.error_details_pb2 import BadRequest
 from loguru import logger
 
-from ..errors import NotFoundError, InvalidArgumentError
+from ..errors import NotFoundError, InvalidArgumentError, Status, ServerError
 from ..routing import Route
+from ..communication_utils import (
+    deserialize_request,
+    serialize_reply,
+    run_request_handler,
+)
+from ..models import to_camel
 
 
-DEFAULT_CONFIG = {
-    'port': 9091
-}
+DEFAULT_CONFIG = {"port": 9091}
 
 sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
 server_routes = {}
@@ -47,25 +52,46 @@ async def grpc_request_v2(sid, meta, data):
 
     try:
         # TODO: move to worker manager or similar?
-        if method_type == 'UnaryUnary':
-            proto_request = route.proto_request_type.FromString(data)
-            request_data = route.request_type(**{ field[0].name: field[1] for field in type(proto_request).ListFields(proto_request) })
-
-            if asyncio.iscoroutine(route.handler):
-                reply = await route.handler(request_data)
-            else:
-                reply = route.handler(request_data)
-
-            proto_reply = route.proto_reply_type(**json.loads(reply.json(by_alias=True))).SerializeToString()
+        if method_type == "UnaryUnary":
+            request_data = deserialize_request(route, data)
+            reply = await run_request_handler(route, request_data)
+            proto_reply = serialize_reply(route, reply)
             # await sio.emit(f"{method_name}_reply", proto_reply)
             return (None, proto_reply)
-    except NotFoundError:
-        logger.error('Not found error')
-    except InvalidArgumentError:
-        logger.error('Invalid argument error')
-    except BaseException as err:
-        logger.error('Server error')
-        print(err)
+    except NotFoundError as error:
+        status_proto = status_pb2.Status(
+            code=Status.NOT_FOUND.value, message="Not found."
+        )
+        return (status_proto.SerializeToString(), None)
+    except InvalidArgumentError as error:
+        status_proto = status_pb2.Status(
+            code=Status.INVALID_ARGUMENT.value, message="Invalid data in request."
+        )
+        detail = BadRequest(
+            field_violations=[
+                BadRequest.FieldViolation(
+                    field=to_camel(field_name),
+                    description=field_error,
+                )
+                for (field_name, field_error) in error.errors_by_fields.items()
+            ]
+        )
+        detail_container = status_proto.details.add()
+        detail_container.Pack(detail)
+        return (status_proto.SerializeToString(), None)
+    except ServerError as error:
+        traceback.print_exc()
+        status_proto = status_pb2.Status(
+            code=Status.INTERNAL.value, message=error.args[0]
+        )
+        return (status_proto.SerializeToString(), None)
+    except BaseException as error:
+        logger.error(f"Unhandled server error {error}")
+        traceback.print_exc()
+        status_proto = status_pb2.Status(
+            code=Status.INTERNAL.value, message="Internal server error."
+        )
+        return (status_proto.SerializeToString(), None)
 
 
 async def start(config: Dict[str, Any], routes: Dict[str, Route]):
@@ -76,7 +102,7 @@ async def start(config: Dict[str, Any], routes: Dict[str, Route]):
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "localhost", config['port'])
+    site = web.TCPSite(runner, "localhost", config["port"])
     await site.start()
-    logger.info("Start socketio server on port " + str(config['port']))
+    logger.info("Start socketio server on port " + str(config["port"]))
     return runner

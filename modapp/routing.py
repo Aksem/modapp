@@ -1,21 +1,33 @@
 from __future__ import annotations
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, List, Optional, Dict, Any
 from inspect import signature
+from typing_extensions import Protocol
 
 from loguru import logger
 
 from .types import DecoratedCallable
 
 
-class BaseService:
+class BaseService(Protocol):
     """This class describes base type of service class."""
+
     def __mapping__(self) -> Dict[str, Any]:
         ...
 
 
 class Route:
     # TODO: more concrete type for handler
-    def __init__(self, path: str, handler: Callable, router: APIRouter, request_type, reply_type, proto_request_type, proto_reply_type, proto_cardinality):
+    def __init__(
+        self,
+        path: str,
+        handler: Callable,
+        router: APIRouter,
+        request_type,
+        reply_type,
+        proto_request_type,
+        proto_reply_type,
+        proto_cardinality,
+    ):
         self.path = path
         self.handler = handler
         self.router = router
@@ -28,8 +40,9 @@ class Route:
 
 class APIRouter:
     def __init__(self, service_cls: Optional[type[BaseService]] = None):
-        self.routes: Dict[str, Route] = {}
+        self._routes: Dict[str, Route] = {}
         self.service_cls = service_cls
+        self.child_routers: List[APIRouter] = []
 
     def endpoint(self, route_path) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
@@ -44,11 +57,13 @@ class APIRouter:
             logger.warning(f'Route "{route_path}" reregistered')
         else:
             logger.info(f'Route "{route_path}" registered')
-        
+
         if self.service_cls is None:
-            logger.warning(f'Route "{route_path}" has no service and cannot be registered')
+            logger.warning(
+                f'Route "{route_path}" has no service and cannot be registered'
+            )
             return
-        
+
         # TODO: find better solution instead of workaround
         self.service_cls.__abstractmethods__ = frozenset()
         service = self.service_cls()
@@ -73,7 +88,26 @@ class APIRouter:
             logger.error(f'Generated handler for route "{route_path}" not found')
             return
 
-        self.routes[route_path] = Route(route_path, handler, self, request_type, None, generated_handler.request_type, generated_handler.reply_type, generated_handler.cardinality)
-    
+        self._routes[route_path] = Route(
+            route_path,
+            handler,
+            self,
+            request_type,
+            None,
+            generated_handler.request_type,
+            generated_handler.reply_type,
+            generated_handler.cardinality,
+        )
+
     def add_route(self, route: Route):
-        self.routes[route.path] = route
+        self._routes[route.path] = route
+
+    def include_router(self, router: APIRouter) -> None:
+        self.child_routers.append(router)
+
+    @property
+    def routes(self) -> Dict[str, Route]:
+        all_routes = self._routes.copy()
+        for router in self.child_routers:
+            all_routes.update(router.routes)
+        return all_routes
