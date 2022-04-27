@@ -1,4 +1,5 @@
 import asyncio
+import platform
 from enum import Enum
 from typing import Any, Callable, Dict, Set
 
@@ -15,6 +16,11 @@ from .communications.socketio import (
     DEFAULT_CONFIG as SOCKETIO_DEFAULT_CONFIG,
 )
 from .types import DecoratedCallable
+
+# uvloop doesn't support Windows yet
+if platform.system() != 'Windows':
+    import uvloop
+    uvloop.install()
 
 
 class Communication(Enum):
@@ -65,7 +71,9 @@ class Modapp:
             ):
                 loop.run_until_complete(socketio_server.cleanup())
 
-    def endpoint(self, route_path: str) -> Callable[[DecoratedCallable], DecoratedCallable]:
+    def endpoint(
+        self, route_path: str
+    ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
             self.router.add_endpoint(route_path, func)
             return func
