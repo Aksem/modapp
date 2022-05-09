@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Callable, List, Optional, Dict, Any
 from inspect import signature
 from typing_extensions import Protocol
+from grpclib.const import Cardinality
 
 from loguru import logger
 

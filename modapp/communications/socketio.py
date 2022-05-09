@@ -1,5 +1,6 @@
 import traceback
 from typing import Any, Dict
+from random import randint, seed
 
 import socketio
 from aiohttp import web
@@ -8,13 +9,15 @@ from google.rpc.error_details_pb2 import BadRequest
 from loguru import logger
 
 from ..errors import NotFoundError, InvalidArgumentError, Status, ServerError
-from ..routing import Route
+from ..routing import Route, Cardinality
 from ..communication_utils import (
     deserialize_request,
     serialize_reply,
     run_request_handler,
 )
 from ..models import to_camel
+
+seed(1)
 
 
 DEFAULT_CONFIG = {"port": 9091}
@@ -39,7 +42,7 @@ async def grpc_request_v2(sid, meta, data):
 
     try:
         method_name = meta["methodName"]
-        method_type = meta["methodType"]
+        # method_type = meta["methodType"]
     except KeyError:
         logger.error("Invalid meta in request")
         raise Exception("Invalid meta in request")
@@ -52,13 +55,18 @@ async def grpc_request_v2(sid, meta, data):
 
     try:
         # TODO: move to worker manager or similar?
-        if method_type == "UnaryUnary":
+        if route.proto_cardinality == Cardinality.UNARY_UNARY:
             request_data = deserialize_request(route, data)
             reply = await run_request_handler(route, request_data)
             proto_reply = serialize_reply(route, reply)
             # await sio.emit(f"{method_name}_reply", proto_reply)
             return (None, proto_reply)
+        elif route.proto_cardinality == Cardinality.UNARY_STREAM:
+            request_data = deserialize_request(route, data)
+            request_id = randint(0, 10000000)
+            return (None, request_id)
     except NotFoundError as error:
+        print(error)
         status_proto = status_pb2.Status(
             code=Status.NOT_FOUND.value, message="Not found."
         )
@@ -104,5 +112,5 @@ async def start(config: Dict[str, Any], routes: Dict[str, Route]):
     await runner.setup()
     site = web.TCPSite(runner, "localhost", config["port"])
     await site.start()
-    logger.info("Start socketio server on port " + str(config["port"]))
+    logger.info("Start socketio server: localhost:" + str(config["port"]))
     return runner
