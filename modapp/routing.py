@@ -78,6 +78,7 @@ class APIRouter:
         handler_signature = signature(handler)
         request_parameter_name = list(handler_signature.parameters.keys())[0]
         request_type = handler_signature.parameters[request_parameter_name].annotation
+        return_type = handler_signature.return_annotation
 
         # TODO: find better solution instead of workaround
         self.service_cls.__abstractmethods__ = frozenset()
@@ -94,7 +95,7 @@ class APIRouter:
             handler,
             self,
             request_type,
-            None,
+            return_type,
             generated_handler.request_type,
             generated_handler.reply_type,
             generated_handler.cardinality,
