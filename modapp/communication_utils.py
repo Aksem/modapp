@@ -27,13 +27,14 @@ def deserialize_request(route: Route, data: bytes):
     #     if (field.name not in request_dict
     #         and request_schema['properties'][field.name].get('type', None) == 'string')
     # })
-    # protobuff ListFields method doesn't return boolean fields if they have value False
+    # protobuff ListFields method doesn't return boolean fields if they have value False)
     request_dict.update(
         {
             field.name: False
             for field in proto_request.DESCRIPTOR.fields
             if (
                 field.name not in request_dict
+                and field.name in request_schema["properties"]
                 and request_schema["properties"][field.name].get("type", None)
                 == "boolean"
             )
