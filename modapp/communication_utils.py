@@ -65,23 +65,23 @@ async def run_request_handler(route, request_data):
 # TODO: reply type
 def serialize_reply(route: Route, reply) -> bytes:
     json_reply = orjson.loads(reply.json(by_alias=True))
-    reply_schema = route.reply_type.schema()
-    # convert datetime to google.protobuf.Timestamp instance
-    # in pydantic model schema datetime has type 'string' and format 'date-time'
-    json_reply.update(
-        {
-            to_camel(field): Timestamp(
-                seconds=int(
-                    reply.dict()[field].replace(tzinfo=timezone.utc).timestamp()
+    
+    def fix_json(model, json):
+        model_schema = type(model).schema()
+        for field in model.__dict__:
+            # convert datetime to google.protobuf.Timestamp instance
+            # in pydantic model schema datetime has type 'string' and format 'date-time'
+            if model_schema["properties"][to_camel(field)].get("format", None) == "date-time":
+                json[to_camel(field)] = Timestamp(
+                    seconds=int(
+                        model.__dict__[field].replace(tzinfo=timezone.utc).timestamp()
+                    )
+                    # TODO: nanos?
                 )
-                # TODO: nanos?
-            )
-            for field in reply.dict()
-            if (
-                reply_schema["properties"][to_camel(field)].get("format", None)
-                == "date-time"
-            )
-        }
-    )
-    print(json_reply)
+            elif '$ref' in model_schema["properties"][to_camel(field)]:
+                # model reference, fix recursively
+                fix_json(model.__dict__[field], json[to_camel(field)])
+
+    fix_json(reply, json_reply)
+    # print(json_reply)
     return route.proto_reply_type(**json_reply).SerializeToString()

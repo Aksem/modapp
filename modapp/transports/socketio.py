@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 from typing import Any, Dict
 from random import randint, seed
@@ -42,7 +43,8 @@ async def grpc_request_v2(sid, meta, data):
 
     try:
         method_name = meta["methodName"]
-        # method_type = meta["methodType"]
+        # connection_id = meta["connectionId"]
+        connection_id = sid
     except KeyError:
         logger.error("Invalid meta in request")
         raise Exception("Invalid meta in request")
@@ -54,7 +56,6 @@ async def grpc_request_v2(sid, meta, data):
         return ("Endpoint not found", None)
 
     try:
-        # TODO: move to worker manager or similar?
         if route.proto_cardinality == Cardinality.UNARY_UNARY:
             request_data = deserialize_request(route, data)
             reply = await run_request_handler(route, request_data)
@@ -64,6 +65,26 @@ async def grpc_request_v2(sid, meta, data):
         elif route.proto_cardinality == Cardinality.UNARY_STREAM:
             request_data = deserialize_request(route, data)
             request_id = randint(0, 10000000)
+
+            async def handle_request(request_id: int, request_data):
+                try:
+                    async for reply in route.handler(
+                        request_data, sid  # TODO: correct connection id
+                    ):  # TODO: handle validation error
+                        proto_reply = serialize_reply(route, reply)
+                        await sio.emit(f"{method_name}_{request_id}_reply", proto_reply)
+                        logger.trace(
+                            f"Response stream message: {method_name}_{request_id}_reply"
+                        )
+                except Exception as error:
+                    logger.error(error)
+                    # send error?
+                    raise ServerError(error)  # TODO: error only in debug?
+
+            loop = asyncio.get_event_loop()
+            asyncio.run_coroutine_threadsafe(
+                handle_request(request_id, request_data), loop
+            )
             return (None, request_id)
     except NotFoundError as error:
         print(error)

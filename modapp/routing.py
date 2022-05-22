@@ -1,4 +1,6 @@
 from __future__ import annotations
+import typing
+from collections.abc import AsyncIterator
 from typing import Callable, List, Optional, Dict, Any
 from inspect import signature
 from typing_extensions import Protocol
@@ -79,6 +81,8 @@ class APIRouter:
         request_parameter_name = list(handler_signature.parameters.keys())[0]
         request_type = handler_signature.parameters[request_parameter_name].annotation
         return_type = handler_signature.return_annotation
+        if isinstance(return_type, typing._GenericAlias) and return_type.__origin__ == AsyncIterator and len(return_type.__args__) > 0:
+            return_type = return_type.__args__[0]
 
         # TODO: find better solution instead of workaround
         self.service_cls.__abstractmethods__ = frozenset()
