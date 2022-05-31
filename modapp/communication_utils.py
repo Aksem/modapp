@@ -1,5 +1,6 @@
 import orjson
 from datetime import timezone
+from typing import Dict, Any
 
 from asyncio import iscoroutine
 from loguru import logger
@@ -8,7 +9,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from .errors import InvalidArgumentError, ServerError
 from .routing import Route
-from .models import to_camel
+from .models import to_camel, BaseModel
 
 
 # TODO: output type
@@ -50,12 +51,12 @@ def deserialize_request(route: Route, data: bytes):
         )
 
 
-async def run_request_handler(route, request_data):
+async def run_request_handler(route, handler_arguments: Dict[str, Any]) -> BaseModel:
     try:
         if iscoroutine(route.handler):
-            reply = await route.handler(request_data)
+            reply = await route.handler(**handler_arguments)
         else:
-            reply = route.handler(request_data)
+            reply = route.handler(**handler_arguments)
         return reply
     except ValidationError as error:
         # failed to validate reply

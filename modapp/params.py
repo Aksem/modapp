@@ -1,0 +1,6 @@
+class Param:
+    ...
+
+
+class Meta(Param):
+    ...

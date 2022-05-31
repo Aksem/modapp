@@ -43,11 +43,11 @@ async def grpc_request_v2(sid, meta, data):
 
     try:
         method_name = meta["methodName"]
-        # connection_id = meta["connectionId"]
-        connection_id = sid
+        # connection_id = sid
     except KeyError:
         logger.error("Invalid meta in request")
         raise Exception("Invalid meta in request")
+    # connection_id = meta.get("connectionId", None)
 
     try:
         route = server_routes[method_name]
@@ -55,21 +55,26 @@ async def grpc_request_v2(sid, meta, data):
         logger.error(f"Endpoint '{meta['methodName']}' not found")
         return ("Endpoint not found", None)
 
+    request_data = deserialize_request(route, data)
+    handler_arguments = {'request': request_data}
+    handler_arguments.update({meta_key: meta[to_camel(meta_key)] for meta_key in route.handler_meta_keys})
     try:
         if route.proto_cardinality == Cardinality.UNARY_UNARY:
-            request_data = deserialize_request(route, data)
-            reply = await run_request_handler(route, request_data)
+            reply = await run_request_handler(route, handler_arguments)
             proto_reply = serialize_reply(route, reply)
             # await sio.emit(f"{method_name}_reply", proto_reply)
             return (None, proto_reply)
         elif route.proto_cardinality == Cardinality.UNARY_STREAM:
-            request_data = deserialize_request(route, data)
             request_id = randint(0, 10000000)
 
-            async def handle_request(request_id: int, request_data):
+            async def handle_request(
+                request_id: int,
+                handler_arguments: Dict[str, Any],
+                route: Route
+            ):
                 try:
                     async for reply in route.handler(
-                        request_data, sid  # TODO: correct connection id
+                        **handler_arguments
                     ):  # TODO: handle validation error
                         proto_reply = serialize_reply(route, reply)
                         await sio.emit(f"{method_name}_{request_id}_reply", proto_reply)
@@ -83,7 +88,7 @@ async def grpc_request_v2(sid, meta, data):
 
             loop = asyncio.get_event_loop()
             asyncio.run_coroutine_threadsafe(
-                handle_request(request_id, request_data), loop
+                handle_request(request_id, handler_arguments, route), loop
             )
             return (None, request_id)
     except NotFoundError as error:

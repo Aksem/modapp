@@ -1,13 +1,16 @@
 from __future__ import annotations
+from functools import cached_property
 import typing
 from collections.abc import AsyncIterator
 from typing import Callable, List, Optional, Dict, Any
 from inspect import signature
 from typing_extensions import Protocol
+# re-export
 from grpclib.const import Cardinality
 
 from loguru import logger
 
+from .params import Meta
 from .types import DecoratedCallable
 
 
@@ -30,6 +33,7 @@ class Route:
         proto_request_type,
         proto_reply_type,
         proto_cardinality,
+        handler_meta_kwargs: Optional[Dict[str, Meta]] = None
     ):
         self.path = path
         self.handler = handler
@@ -39,6 +43,14 @@ class Route:
         self.proto_request_type = proto_request_type
         self.proto_reply_type = proto_reply_type
         self.proto_cardinality = proto_cardinality
+        
+        self.handler_meta_kwargs: Dict[str, Meta] = {}
+        if handler_meta_kwargs:
+            self.handler_meta_kwargs = handler_meta_kwargs
+    
+    @cached_property
+    def handler_meta_keys(self) -> List[str]:
+        return [name for name in self.handler_meta_kwargs.keys()]
 
 
 class APIRouter:
@@ -78,8 +90,12 @@ class APIRouter:
             return
 
         handler_signature = signature(handler)
-        request_parameter_name = list(handler_signature.parameters.keys())[0]
-        request_type = handler_signature.parameters[request_parameter_name].annotation
+        meta_kwargs: Dict[str, Meta] = {}
+        for (parameter_name, parameter) in handler_signature.parameters.items():
+            if isinstance(parameter.default, Meta):
+                meta_kwargs[parameter_name] = parameter.default
+
+        request_type = handler_signature.parameters['request'].annotation
         return_type = handler_signature.return_annotation
         if isinstance(return_type, typing._GenericAlias) and return_type.__origin__ == AsyncIterator and len(return_type.__args__) > 0:
             return_type = return_type.__args__[0]
@@ -103,6 +119,7 @@ class APIRouter:
             generated_handler.request_type,
             generated_handler.reply_type,
             generated_handler.cardinality,
+            handler_meta_kwargs=meta_kwargs
         )
 
     def add_route(self, route: Route):
