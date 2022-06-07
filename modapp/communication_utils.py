@@ -1,6 +1,6 @@
 import orjson
 from datetime import timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from asyncio import iscoroutine
 from loguru import logger
@@ -65,7 +65,11 @@ async def run_request_handler(route, handler_arguments: Dict[str, Any]) -> BaseM
 
 
 # TODO: reply type
-def serialize_reply(route: Route, reply) -> bytes:
+def serialize_reply(route: Route, reply: Optional[BaseModel]) -> bytes:
+    if reply is None:
+        logger.error(f"Route handler '{route.path}' doesn't return value")
+        raise ServerError('Internal error')
+
     json_reply = orjson.loads(reply.json(by_alias=True))
     
     def fix_json(model, json):
