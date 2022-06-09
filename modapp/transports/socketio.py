@@ -92,7 +92,8 @@ async def grpc_request_v2(sid, meta, data):
             )
             return (None, request_id)
     except NotFoundError as error:
-        print(error)
+        # logger.error(error)
+        traceback.print_exc()
         status_proto = status_pb2.Status(
             code=Status.NOT_FOUND.value, message="Not found."
         )
