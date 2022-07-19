@@ -41,8 +41,8 @@ def deserialize_request(route: Route, data: bytes):
             )
         }
     )
-    # print(data, request_dict, type(proto_request).ListFields(proto_request))
-    print(request_dict)
+    # request is not neccessary valid utf-8 string, handle errors
+    logger.trace(str(request_dict).encode("utf-8", errors="replace"))
     try:
         return route.request_type(**request_dict)
     except ValidationError as error:
