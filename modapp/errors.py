@@ -1,6 +1,7 @@
 from enum import Enum, unique
 from typing import Dict
 
+
 class InvalidArgumentError(Exception):
     def __init__(self, errors_by_fields: Dict[str, str]):
         self.errors_by_fields = errors_by_fields

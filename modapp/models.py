@@ -1,5 +1,5 @@
 import orjson
-from pydantic import BaseModel as PBaseModel, validator
+from pydantic import BaseModel as PBaseModel, validator, ValidationError
 
 
 def to_camel(string: str) -> str:
@@ -21,4 +21,4 @@ class BaseModel(PBaseModel):
         json_dumps = orjson_dumps
 
 
-__all__ = ["BaseModel", "validator", "to_camel"]
+__all__ = ["BaseModel", "validator", "to_camel", "ValidationError"]

@@ -55,7 +55,25 @@ async def grpc_request_v2(sid, meta, data):
         logger.error(f"Endpoint '{meta['methodName']}' not found")
         return ("Endpoint not found", None)
 
-    request_data = deserialize_request(route, data)
+    try:
+        request_data = deserialize_request(route, data)
+    except InvalidArgumentError as error:
+        status_proto = status_pb2.Status(
+            code=Status.INVALID_ARGUMENT.value, message="Invalid data in request."
+        )
+        detail = BadRequest(
+            field_violations=[
+                BadRequest.FieldViolation(
+                    field=to_camel(field_name),
+                    description=field_error,
+                )
+                for (field_name, field_error) in error.errors_by_fields.items()
+            ]
+        )
+        detail_container = status_proto.details.add()
+        detail_container.Pack(detail)
+        return (status_proto.SerializeToString(), None)
+
     handler_arguments = {'request': request_data}
     handler_arguments.update({meta_key: meta[to_camel(meta_key)] for meta_key in route.handler_meta_keys})
     try:

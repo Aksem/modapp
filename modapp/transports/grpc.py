@@ -3,12 +3,12 @@ import json
 from functools import partial
 from typing import Dict
 
-from grpclib.const import Handler, Cardinality
+from grpclib.const import Handler
 from grpclib.events import listen, RecvRequest
 from grpclib.server import Server
 from loguru import logger
 
-from ..routing import Route
+from ..routing import Route, Cardinality
 
 DEFAULT_CONFIG = {}
 

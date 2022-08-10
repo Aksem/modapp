@@ -1,12 +1,12 @@
 from __future__ import annotations
+from enum import Enum, unique
+from collections import namedtuple
 from functools import cached_property
 import typing
 from collections.abc import AsyncIterator
 from typing import Callable, List, Optional, Dict, Any
 from inspect import signature
 from typing_extensions import Protocol
-# re-export
-from grpclib.const import Cardinality
 
 from loguru import logger
 
@@ -19,6 +19,18 @@ class BaseService(Protocol):
 
     def __mapping__(self) -> Dict[str, Any]:
         ...
+
+
+_Cardinality = namedtuple(
+    '_Cardinality', 'client_streaming, server_streaming',
+)
+
+@unique
+class Cardinality(_Cardinality, Enum):
+    UNARY_UNARY = _Cardinality(False, False)
+    UNARY_STREAM = _Cardinality(False, True)
+    STREAM_UNARY = _Cardinality(True, False)
+    STREAM_STREAM = _Cardinality(True, True)
 
 
 class Route:
@@ -118,7 +130,8 @@ class APIRouter:
             return_type,
             generated_handler.request_type,
             generated_handler.reply_type,
-            generated_handler.cardinality,
+            # grpc cardinality to modapp cardinality to avoid dependency from grpclib
+            Cardinality.__dict__[generated_handler.cardinality.name],
             handler_meta_kwargs=meta_kwargs
         )
 
