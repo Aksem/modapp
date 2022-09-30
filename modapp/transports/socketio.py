@@ -134,8 +134,12 @@ async def grpc_request_v2(sid, meta, data):
         return (status_proto.SerializeToString(), None)
     except ServerError as error:
         traceback.print_exc()
+        if len(error.args) > 0:
+            message = error.args[0]
+        else:
+            message = "Internal error"
         status_proto = status_pb2.Status(
-            code=Status.INTERNAL.value, message=error.args[0]
+            code=Status.INTERNAL.value, message=message
         )
         return (status_proto.SerializeToString(), None)
     except BaseException as error:
