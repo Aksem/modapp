@@ -99,6 +99,10 @@ def serialize_reply(route: Route, reply: Optional[BaseModel]) -> bytes:
     json_reply = orjson.loads(reply.json(by_alias=True))
 
     def fix_json(model, json):
+        # model is field with reference, it can be also for example Enum
+        if not isinstance(model, BaseModel):
+            return
+
         model_schema = type(model).schema()
         for field in model.__dict__:
             # convert datetime to google.protobuf.Timestamp instance
