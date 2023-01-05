@@ -101,6 +101,7 @@ async def grpc_request_v2(sid, meta, data):
                         )
                 except Exception as error:
                     logger.error(error)
+                    traceback.print_exc()
                     # send error?
                     raise ServerError(error)  # TODO: error only in debug?
 

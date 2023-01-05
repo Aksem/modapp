@@ -1,7 +1,7 @@
 import asyncio
 import json
 from functools import partial
-from typing import Dict
+from typing import Dict, Union
 
 from grpclib.const import Handler
 from grpclib.events import listen, RecvRequest
@@ -10,7 +10,9 @@ from loguru import logger
 
 from ..routing import Route, Cardinality
 
-DEFAULT_CONFIG = {}
+DEFAULT_CONFIG = {
+    "port": 50051
+}
 
 
 async def recv_request(event: RecvRequest):
@@ -69,18 +71,19 @@ class HandlerStorage:
         return result
 
 
-async def start(config: Dict[str, str], routes: Dict[str, Route]):
+async def start(config: Dict[str, Union[str, int]], routes: Dict[str, Route]):
     # TODO: form handlers and pass to server
     handler_storage = HandlerStorage(routes)
     server = Server([handler_storage])
 
     listen(server, RecvRequest, recv_request)
 
+    port = int(config.get("port", DEFAULT_CONFIG["port"]))
     # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
-    await server.start("127.0.0.1", 50051)
+    await server.start("127.0.0.1", port)
     # await server.wait_closed()
 
-    logger.info("Start grpc server: 127.0.0.1:50051")
+    logger.info(f"Start grpc server: 127.0.0.1:{port}")
 
     return server
 
