@@ -1,18 +1,27 @@
-import asyncio
+from __future__ import annotations
 import json
 from functools import partial
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Optional
 
 from grpclib.const import Handler
-from grpclib.events import listen, RecvRequest
+from grpclib.events import RecvRequest, listen
 from grpclib.server import Server
 from loguru import logger
+from typing_extensions import NotRequired
 
-from ..routing import Route, Cardinality
+from ..base_transport import BaseTransportConfig, BaseTransport
+from ..routing import Cardinality
 
-DEFAULT_CONFIG = {
-    "port": 50051
-}
+if TYPE_CHECKING:
+    from ..routing import RoutesDict
+
+
+class GrpcTransportConfig(BaseTransportConfig):
+    address: NotRequired[str]
+    port: NotRequired[int]
+
+
+DEFAULT_CONFIG: GrpcTransportConfig = {"address": "127.0.0.1", "port": 50051}
 
 
 async def recv_request(event: RecvRequest):
@@ -24,7 +33,8 @@ async def format_req(request_type, request_stream):
     assert request is not None
 
     print("req->", request_type)
-    # return request_type(**{ field.name: request[field.name] for field in request.DESCRIPTOR.fields })
+    # return request_type(**{ field.name: request[field.name] for field in
+    # request.DESCRIPTOR.fields })
     # field is tuple with FieldDescriptor as first element and field value as second
     return request_type(
         **{field[0].name: field[1] for field in type(request).ListFields(request)}
@@ -39,7 +49,7 @@ def format_res(response_type, response):
 
 
 class HandlerStorage:
-    def __init__(self, routes: Dict[str, Route]):
+    def __init__(self, routes: RoutesDict) -> None:
         self.routes = routes
 
     def __mapping__(self):
@@ -71,37 +81,76 @@ class HandlerStorage:
         return result
 
 
-async def start(config: Dict[str, Union[str, int]], routes: Dict[str, Route]):
-    # TODO: form handlers and pass to server
-    handler_storage = HandlerStorage(routes)
-    server = Server([handler_storage])
+class GrpcTransport(BaseTransport):
+    CONFIG_KEY = "grpc"
 
-    listen(server, RecvRequest, recv_request)
+    def __init__(self, config: GrpcTransportConfig = DEFAULT_CONFIG) -> None:
+        super().__init__(config)
+        self.server: Optional[Server] = None
 
-    port = int(config.get("port", DEFAULT_CONFIG["port"]))
-    # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
-    await server.start("127.0.0.1", port)
-    # await server.wait_closed()
+    async def start(self, routes: RoutesDict) -> None:
+        handler_storage = HandlerStorage(routes)
+        self.server = Server([handler_storage])
 
-    logger.info(f"Start grpc server: 127.0.0.1:{port}")
+        listen(self.server, RecvRequest, recv_request)
 
-    return server
-
-
-if __name__ == "__main__":
-
-    def get_or_create_eventloop():
         try:
-            return asyncio.get_event_loop()
-        except RuntimeError as ex:
-            if "There is no current event loop in thread" in str(ex):
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                return asyncio.get_event_loop()
+            address: str = self.config.get("address", DEFAULT_CONFIG["address"])
+            port: int = self.config.get("port", DEFAULT_CONFIG["port"])
+        except KeyError as e:
+            raise ValueError(
+                f"{e.args[0]} is missed in default configuration of grpc transport"
+            )
 
-    asyncio.run(start({}))
-    loop = get_or_create_eventloop()
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        loop.stop()
+        # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
+        await self.server.start(address, port)
+        # await server.wait_closed()
+
+        logger.info(f"Start grpc server: {address}:{port}")
+
+    async def stop(self) -> None:
+        if self.server is not None:
+            self.server.close()
+            self.server = None
+        else:
+            logger.warning("Cannot stop not started server")
+
+
+# async def start(config: GrpcTransportConfig, routes: Dict[str, Route]):
+#     # TODO: form handlers and pass to server
+#     handler_storage = HandlerStorage(routes)
+#     server = Server([handler_storage])
+
+#     listen(server, RecvRequest, recv_request)
+
+#     address = config.get("address", DEFAULT_CONFIG["address"])
+#     port = config.get("port", DEFAULT_CONFIG["port"])
+#     # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
+#     await server.start(address, port)
+#     # await server.wait_closed()
+
+#     logger.info(f"Start grpc server: {address}:{port}")
+
+#     return server
+
+
+# if __name__ == "__main__":
+
+#     def get_or_create_eventloop():
+#         try:
+#             return asyncio.get_event_loop()
+#         except RuntimeError as ex:
+#             if "There is no current event loop in thread" in str(ex):
+#                 loop = asyncio.new_event_loop()
+#                 asyncio.set_event_loop(loop)
+#                 return asyncio.get_event_loop()
+
+#     asyncio.run(start({}))
+#     loop = get_or_create_eventloop()
+#     try:
+#         loop.run_forever()
+#     except KeyboardInterrupt:
+#         loop.stop()
+
+
+__all__ = ["GrpcTransport", "GrpcTransportConfig"]

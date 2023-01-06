@@ -1,14 +1,15 @@
 from __future__ import annotations
-from enum import Enum, unique
-from collections import namedtuple
-from functools import cached_property
+
 import typing
+from collections import namedtuple
 from collections.abc import AsyncIterator
-from typing import Callable, List, Optional, Dict, Any
+from enum import Enum, unique
+from functools import cached_property
 from inspect import signature
-from typing_extensions import Protocol
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
+from typing_extensions import Protocol
 
 from .params import Meta
 from .types import DecoratedCallable
@@ -22,8 +23,10 @@ class BaseService(Protocol):
 
 
 _Cardinality = namedtuple(
-    '_Cardinality', 'client_streaming, server_streaming',
+    "_Cardinality",
+    "client_streaming, server_streaming",
 )
+
 
 @unique
 class Cardinality(_Cardinality, Enum):
@@ -45,8 +48,8 @@ class Route:
         proto_request_type,
         proto_reply_type,
         proto_cardinality,
-        handler_meta_kwargs: Optional[Dict[str, Meta]] = None
-    ):
+        handler_meta_kwargs: Optional[Dict[str, Meta]] = None,
+    ) -> None:
         self.path = path
         self.handler = handler
         self.router = router
@@ -55,14 +58,17 @@ class Route:
         self.proto_request_type = proto_request_type
         self.proto_reply_type = proto_reply_type
         self.proto_cardinality = proto_cardinality
-        
+
         self.handler_meta_kwargs: Dict[str, Meta] = {}
         if handler_meta_kwargs:
             self.handler_meta_kwargs = handler_meta_kwargs
-    
+
     @cached_property
     def handler_meta_keys(self) -> List[str]:
         return [name for name in self.handler_meta_kwargs.keys()]
+
+
+RoutesDict = Dict[str, Route]
 
 
 class APIRouter:
@@ -103,13 +109,17 @@ class APIRouter:
 
         handler_signature = signature(handler)
         meta_kwargs: Dict[str, Meta] = {}
-        for (parameter_name, parameter) in handler_signature.parameters.items():
+        for parameter_name, parameter in handler_signature.parameters.items():
             if isinstance(parameter.default, Meta):
                 meta_kwargs[parameter_name] = parameter.default
 
-        request_type = handler_signature.parameters['request'].annotation
+        request_type = handler_signature.parameters["request"].annotation
         return_type = handler_signature.return_annotation
-        if isinstance(return_type, typing._GenericAlias) and return_type.__origin__ == AsyncIterator and len(return_type.__args__) > 0:
+        if (
+            isinstance(return_type, typing._GenericAlias)
+            and return_type.__origin__ == AsyncIterator
+            and len(return_type.__args__) > 0
+        ):
             return_type = return_type.__args__[0]
 
         # TODO: find better solution instead of workaround
@@ -132,7 +142,7 @@ class APIRouter:
             generated_handler.reply_type,
             # grpc cardinality to modapp cardinality to avoid dependency from grpclib
             Cardinality.__dict__[generated_handler.cardinality.name],
-            handler_meta_kwargs=meta_kwargs
+            handler_meta_kwargs=meta_kwargs,
         )
 
     def add_route(self, route: Route):

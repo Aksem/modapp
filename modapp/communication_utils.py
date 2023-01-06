@@ -1,15 +1,15 @@
-import orjson
-from datetime import timezone
-from typing import Dict, Any, List, Optional
-
 from asyncio import iscoroutine
+from datetime import timezone
+from typing import Any, Dict, List, Optional
+
+import orjson
+from google.protobuf.timestamp_pb2 import Timestamp
 from loguru import logger
 from pydantic import ValidationError
-from google.protobuf.timestamp_pb2 import Timestamp
 
 from .errors import InvalidArgumentError, ServerError
+from .models import BaseModel, to_camel
 from .routing import Route
-from .models import to_camel, BaseModel
 
 
 # TODO: output type
@@ -59,7 +59,8 @@ def deserialize_request(route: Route, data: bytes):
                 definition = request_schema["definitions"][definition_name]
             except KeyError:
                 logger.warning(
-                    f"Field '{field.name}' has reference to definition, but definition was not found"
+                    f"Field '{field.name}' has reference to definition, but definition"
+                    " was not found"
                 )
                 continue
 
@@ -98,7 +99,7 @@ def serialize_reply(route: Route, reply: Optional[BaseModel]) -> bytes:
 
     json_reply = orjson.loads(reply.json(by_alias=True))
 
-    def fix_json(model, json):
+    def fix_json(model, json) -> None:
         # model is field with reference, it can be also for example Enum
         if not isinstance(model, BaseModel):
             return
