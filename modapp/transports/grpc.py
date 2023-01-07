@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 from functools import partial
 from typing import TYPE_CHECKING, Optional
@@ -11,7 +12,7 @@ from typing_extensions import NotRequired
 
 from modapp.base_converter import BaseConverter
 
-from ..base_transport import BaseTransportConfig, BaseTransport
+from ..base_transport import BaseTransport, BaseTransportConfig
 from ..routing import Cardinality
 
 if TYPE_CHECKING:

@@ -4,7 +4,7 @@ from typing import Callable, Dict, Optional, Set
 
 from loguru import logger
 
-from modapp.base_transport import BaseTransportConfig, BaseTransport
+from modapp.base_transport import BaseTransport, BaseTransportConfig
 from modapp.routing import APIRouter
 
 from .types import DecoratedCallable
@@ -37,11 +37,7 @@ class Modapp:
             asyncio.set_event_loop(loop)
 
         for transport in self.transports:
-            loop.run_until_complete(
-                transport.start(
-                    self.router.routes
-                )
-            )
+            loop.run_until_complete(transport.start(self.router.routes))
 
         try:
             logger.info("Server has started")
@@ -65,5 +61,7 @@ class Modapp:
         for route in router.routes.values():
             self.router.add_route(route)
 
-    def update_config(self, transport: BaseTransport, config: BaseTransportConfig) -> None:
+    def update_config(
+        self, transport: BaseTransport, config: BaseTransportConfig
+    ) -> None:
         self.config[transport.CONFIG_KEY].update(config)

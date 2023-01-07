@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from abc import ABC
 from typing import TYPE_CHECKING, Optional, TypedDict
 
@@ -18,7 +19,9 @@ class BaseTransport(ABC):
     # TODO: Check automatically whether it is set
     CONFIG_KEY: str
 
-    def __init__(self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None):
+    def __init__(
+        self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None
+    ):
         self.config = config
         self.converter = converter if converter is not None else get_default_converter()
 

@@ -11,7 +11,7 @@ from loguru import logger
 from typing_extensions import NotRequired
 
 from ..base_converter import BaseConverter
-from ..base_transport import BaseTransportConfig, BaseTransport
+from ..base_transport import BaseTransport, BaseTransportConfig
 from ..communication_utils import (
     deserialize_request,
     run_request_handler,
