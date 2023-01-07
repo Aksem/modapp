@@ -10,6 +10,7 @@ from google.rpc.error_details_pb2 import BadRequest
 from loguru import logger
 from typing_extensions import NotRequired
 
+from ..base_converter import BaseConverter
 from ..base_transport import BaseTransportConfig, BaseTransport
 from ..communication_utils import (
     deserialize_request,
@@ -34,19 +35,16 @@ DEFAULT_CONFIG: SocketioTransportConfig = {"address": "127.0.0.1", "port": 9091}
 class SocketioTransport(BaseTransport):
     CONFIG_KEY = "socketio"
 
-    def __init__(self, config: SocketioTransportConfig) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: SocketioTransportConfig, converter: Optional[BaseConverter] = None
+    ) -> None:
+        super().__init__(config, converter)
         self.runner: Optional[web.AppRunner] = None
 
     async def start(self, routes: RoutesDict) -> None:
         sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
-        # server_routes = {}
-
         app = web.Application()
         sio.attach(app)
-        # TODO: avoid
-        # global server_routes
-        # server_routes = routes
 
         @sio.event
         async def connect(sid, environ, auth):

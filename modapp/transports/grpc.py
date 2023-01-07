@@ -9,6 +9,8 @@ from grpclib.server import Server
 from loguru import logger
 from typing_extensions import NotRequired
 
+from modapp.base_converter import BaseConverter
+
 from ..base_transport import BaseTransportConfig, BaseTransport
 from ..routing import Cardinality
 
@@ -84,8 +86,10 @@ class HandlerStorage:
 class GrpcTransport(BaseTransport):
     CONFIG_KEY = "grpc"
 
-    def __init__(self, config: GrpcTransportConfig = DEFAULT_CONFIG) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: GrpcTransportConfig, converter: Optional[BaseConverter] = None
+    ) -> None:
+        super().__init__(config, converter)
         self.server: Optional[Server] = None
 
     async def start(self, routes: RoutesDict) -> None:
