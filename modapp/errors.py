@@ -2,16 +2,25 @@ from enum import Enum, unique
 from typing import Dict
 
 
-class InvalidArgumentError(Exception):
+class BaseModappError(Exception):
+    ...
+
+
+class InvalidArgumentError(BaseModappError):
     def __init__(self, errors_by_fields: Dict[str, str]):
         self.errors_by_fields = errors_by_fields
 
 
-class NotFoundError(Exception):
+class NotFoundError(BaseModappError):
     ...
 
 
-class ServerError(Exception):
+class ServerError(BaseModappError):
+    ...
+
+
+# TODO: different base exceptions external and internal errors
+class PersistanceError(BaseModappError):
     ...
 
 

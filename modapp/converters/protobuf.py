@@ -1,5 +1,209 @@
-from ..base_converter import BaseConverter
+from __future__ import annotations
+from datetime import timezone
+from typing import List, TYPE_CHECKING, Dict, Optional, Any, Type
+
+import orjson
+from loguru import logger
+from pydantic import ValidationError
+from google.protobuf.timestamp_pb2 import Timestamp
+from google.rpc import status_pb2
+from google.rpc.error_details_pb2 import BadRequest
+
+from modapp.models import BaseModel, to_camel
+from modapp.routing import Route
+from modapp.base_converter import BaseConverter
+from modapp.errors import InvalidArgumentError, Status, NotFoundError, ServerError
+
+if TYPE_CHECKING:
+    from modapp.errors import BaseModappError
+
+
+ProtoType = Any
 
 
 class ProtobufConverter(BaseConverter):
-    ...
+    def __init__(self, protos: Dict[str, ProtoType]) -> None:
+        super().__init__()
+        self.protos = protos
+        self.resolved_protos: Dict[Type[BaseModel], ProtoType] = {}
+
+    def raw_to_model(self, raw: bytes, route: Route) -> BaseModel:
+        try:
+            proto_request_type = self.resolved_protos[route.request_type]
+        except KeyError:
+            proto_request_type = self.resolve_proto(route.path, route.request_type)
+            if proto_request_type is None:
+                raise ServerError()
+            else:
+                self.resolved_protos[route.request_type] = proto_request_type
+
+        proto_request = proto_request_type.FromString(raw)
+        request_dict = {
+            field[0].name: field[1]
+            for field in type(proto_request).ListFields(proto_request)
+        }
+        request_schema = route.request_type.schema()
+        # protobuff ListFields method doesn't return empty string fields, but they are not
+        # neccessary required
+        # request_dict.update({
+        #     field.name: ''
+        #     for field in proto_request.DESCRIPTOR.fields
+        #     if (field.name not in request_dict
+        #         and request_schema['properties'][field.name].get('type', None) == 'string')
+        # })
+
+        # protobuff ListFields method doesn't return boolean fields if they have value False)
+        request_dict.update(
+            {
+                field.name: False
+                for field in proto_request.DESCRIPTOR.fields
+                if (
+                    field.name not in request_dict
+                    and field.name in request_schema["properties"]
+                    and request_schema["properties"][field.name].get("type", None)
+                    == "boolean"
+                )
+            }
+        )
+
+        # protobuff ListFields method doesn't return enum fields if they have value 0)
+        fields_to_update: List[str] = []
+        for field in proto_request.DESCRIPTOR.fields:
+            if (
+                field.name not in request_dict
+                and field.name in request_schema["properties"]
+                and request_schema["properties"][field.name].get("$ref", None)
+                is not None
+            ):
+                definition_name = (
+                    request_schema["properties"][field.name]
+                    .get("$ref", "")
+                    .split("/")[-1]
+                )
+                try:
+                    # can ref be imported? TODO: check
+                    definition = request_schema["definitions"][definition_name]
+                except KeyError:
+                    logger.warning(
+                        f"Field '{field.name}' has reference to definition, but"
+                        " definition was not found"
+                    )
+                    continue
+
+                if definition["type"] == "integer" and "enum" in definition:
+                    fields_to_update.append(field.name)
+        request_dict.update({field: 0 for field in fields_to_update})
+
+        # request is not neccessary valid utf-8 string, handle errors
+        logger.trace(str(request_dict).encode("utf-8", errors="replace"))
+        try:
+            return route.request_type(**request_dict)
+        except ValidationError as error:
+            raise InvalidArgumentError(
+                {str(error["loc"][0]): error["msg"] for error in error.errors()}
+            )
+
+    def model_to_raw(self, model: BaseModel, route: Route) -> bytes:
+        # if reply is None:
+        #     logger.error(f"Route handler '{route.path}' doesn't return value")
+        #     raise ServerError("Internal error")
+
+        json_reply = orjson.loads(model.json(by_alias=True))
+
+        def fix_json(model, json) -> None:
+            # model is field with reference, it can be also for example Enum
+            if not isinstance(model, BaseModel):
+                return
+
+            model_schema = type(model).schema()
+            for field in model.__dict__:
+                # convert datetime to google.protobuf.Timestamp instance
+                # in pydantic model schema datetime has type 'string' and format 'date-time'
+                if (
+                    model_schema["properties"][to_camel(field)].get("format", None)
+                    == "date-time"
+                ):
+                    json[to_camel(field)] = Timestamp(
+                        seconds=int(
+                            model.__dict__[field]
+                            .replace(tzinfo=timezone.utc)
+                            .timestamp()
+                        )
+                        # TODO: nanos?
+                    )
+                elif "$ref" in model_schema["properties"][to_camel(field)]:
+                    # model reference, fix recursively
+                    fix_json(model.__dict__[field], json[to_camel(field)])
+
+        fix_json(model, json_reply)
+        
+        try:
+            proto_reply_type = self.resolved_protos[route.reply_type]
+        except KeyError:
+            proto_reply_type = self.resolve_proto(route.path, route.reply_type)
+            if proto_reply_type is None:
+                raise ServerError()
+            else:
+                self.resolved_protos[route.reply_type] = proto_reply_type
+        return proto_reply_type(**json_reply).SerializeToString()
+
+    def error_to_raw(self, error: BaseModappError, route: Route) -> bytes:
+        if isinstance(error, InvalidArgumentError):
+            return self.__invalid_argument_to_raw(error, route)
+        elif isinstance(error, NotFoundError):
+            return self.__not_found_to_raw(error, route)
+        elif isinstance(error, ServerError):
+            return self.__server_error_to_raw(error, route)
+        raise NotImplementedError()
+
+    def __invalid_argument_to_raw(
+        self, error: InvalidArgumentError, route: Route
+    ) -> bytes:
+        status_proto = status_pb2.Status(
+            code=Status.INVALID_ARGUMENT.value,
+            message="Invalid data in request.",
+        )
+        detail = BadRequest(
+            field_violations=[
+                BadRequest.FieldViolation(
+                    field=to_camel(field_name),
+                    description=field_error,
+                )
+                for (field_name, field_error) in error.errors_by_fields.items()
+            ]
+        )
+        detail_container = status_proto.details.add()
+        detail_container.Pack(detail)
+        return status_proto.SerializeToString()
+
+    def __not_found_to_raw(self, error: NotFoundError, route: Route) -> bytes:
+        status_proto = status_pb2.Status(
+            code=Status.NOT_FOUND.value, message="Not found."
+        )
+        return status_proto.SerializeToString()
+
+    def __server_error_to_raw(self, error: ServerError, route: Route) -> bytes:
+        if len(error.args) > 0:
+            message = error.args[0]
+        else:
+            message = "Internal error"
+        status_proto = status_pb2.Status(code=Status.INTERNAL.value, message=message)
+        return status_proto.SerializeToString()
+
+    def resolve_proto(self, route_path: str, request_type: Type[BaseModel]) -> Optional[ProtoType]:
+        type_name = request_type.__name__
+        
+        # route path to proto path
+        service_path = route_path.split("/")[:-1]  # cut method name
+        service_py_path = '.'.join(service_path).lstrip('.')
+        proto_package_path = '.'.join(service_py_path.split('.')[:-1])  # cut service name
+        if len(proto_package_path) > 0:
+            proto_path = proto_package_path + '.' + type_name
+        else:
+            proto_path = type_name
+
+        try:
+            return self.protos[proto_path]
+        except KeyError:
+            logger.error(f'Proto for type {type_name} not found')
+            return None

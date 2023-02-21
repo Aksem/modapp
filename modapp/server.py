@@ -1,20 +1,30 @@
+from __future__ import annotations
 import asyncio
 import platform
-from typing import Callable, Dict, Optional, Set
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from modapp.base_transport import BaseTransport, BaseTransportConfig
-from modapp.routing import APIRouter
+from modapp.routing import APIRouter, RouteMeta
 
-from .types import DecoratedCallable
+if TYPE_CHECKING:
+    from typing import Callable, Dict, Optional, Set
+
+    from modapp.base_transport import BaseTransport, BaseTransportConfig
+    from modapp.types import DecoratedCallable
+    from modapp.dependencies import DependencyOverrides
+
 
 # uvloop doesn't support Windows yet
 if platform.system() != "Windows":
-    import uvloop
+    # uvloop is optional dependency
+    try:
+        import uvloop
 
-    # install uvloop event loop to get better performance of event loop
-    uvloop.install()
+        # install uvloop event loop to get better performance of event loop
+        uvloop.install()
+    except ImportError:
+        ...
 
 
 class Modapp:
@@ -22,12 +32,14 @@ class Modapp:
         self,
         transports: Set[BaseTransport],
         config: Optional[Dict[str, BaseTransportConfig]] = None,
+        dependency_overrides: Optional[DependencyOverrides] = None,
     ) -> None:
         self.transports = transports
         self.config: Dict[str, BaseTransportConfig] = {}
         if config is not None:
             self.config = config
-        self.router = APIRouter()
+        self.dependency_overrides = dependency_overrides
+        self.router = APIRouter(dependency_overrides=dependency_overrides)
 
     def run(self) -> None:
         try:
@@ -49,10 +61,10 @@ class Modapp:
                 loop.run_until_complete(transport.stop())
 
     def endpoint(
-        self, route_path: str
+        self, route_meta: RouteMeta
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
-            self.router.add_endpoint(route_path, func)
+            self.router.add_endpoint(route_meta, func)
             return func
 
         return decorator
