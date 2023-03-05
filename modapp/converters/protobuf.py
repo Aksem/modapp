@@ -27,22 +27,22 @@ class ProtobufConverter(BaseConverter):
         self.protos = protos
         self.resolved_protos: Dict[Type[BaseModel], ProtoType] = {}
 
-    def raw_to_model(self, raw: bytes, route: Route) -> BaseModel:
+    def raw_to_model(self, raw: bytes, model_cls: Type[BaseModel]) -> BaseModel:
         try:
-            proto_request_type = self.resolved_protos[route.request_type]
+            proto_request_type = self.resolved_protos[model_cls]
         except KeyError:
-            proto_request_type = self.resolve_proto(route.path, route.request_type)
+            proto_request_type = self.resolve_proto(model_cls.__modapp_path__)
             if proto_request_type is None:
                 raise ServerError()
             else:
-                self.resolved_protos[route.request_type] = proto_request_type
+                self.resolved_protos[model_cls] = proto_request_type
 
         proto_request = proto_request_type.FromString(raw)
         request_dict = {
             field[0].name: field[1]
             for field in type(proto_request).ListFields(proto_request)
         }
-        request_schema = route.request_type.schema()
+        request_schema = model_cls.schema()
         # protobuff ListFields method doesn't return empty string fields, but they are not
         # neccessary required
         # request_dict.update({
@@ -97,13 +97,13 @@ class ProtobufConverter(BaseConverter):
         # request is not neccessary valid utf-8 string, handle errors
         logger.trace(str(request_dict).encode("utf-8", errors="replace"))
         try:
-            return route.request_type(**request_dict)
+            return model_cls(**request_dict)
         except ValidationError as error:
             raise InvalidArgumentError(
                 {str(error["loc"][0]): error["msg"] for error in error.errors()}
             )
 
-    def model_to_raw(self, model: BaseModel, route: Route) -> bytes:
+    def model_to_raw(self, model: BaseModel) -> bytes:
         # if reply is None:
         #     logger.error(f"Route handler '{route.path}' doesn't return value")
         #     raise ServerError("Internal error")
@@ -136,15 +136,15 @@ class ProtobufConverter(BaseConverter):
                     fix_json(model.__dict__[field], json[to_camel(field)])
 
         fix_json(model, json_reply)
-        
+
         try:
-            proto_reply_type = self.resolved_protos[route.reply_type]
+            proto_reply_type = self.resolved_protos[model.__class__]
         except KeyError:
-            proto_reply_type = self.resolve_proto(route.path, route.reply_type)
+            proto_reply_type = self.resolve_proto(model.__modapp_path__)
             if proto_reply_type is None:
                 raise ServerError()
             else:
-                self.resolved_protos[route.reply_type] = proto_reply_type
+                self.resolved_protos[model.__class__] = proto_reply_type
         return proto_reply_type(**json_reply).SerializeToString()
 
     def error_to_raw(self, error: BaseModappError, route: Route) -> bytes:
@@ -190,20 +190,9 @@ class ProtobufConverter(BaseConverter):
         status_proto = status_pb2.Status(code=Status.INTERNAL.value, message=message)
         return status_proto.SerializeToString()
 
-    def resolve_proto(self, route_path: str, request_type: Type[BaseModel]) -> Optional[ProtoType]:
-        type_name = request_type.__name__
-        
-        # route path to proto path
-        service_path = route_path.split("/")[:-1]  # cut method name
-        service_py_path = '.'.join(service_path).lstrip('.')
-        proto_package_path = '.'.join(service_py_path.split('.')[:-1])  # cut service name
-        if len(proto_package_path) > 0:
-            proto_path = proto_package_path + '.' + type_name
-        else:
-            proto_path = type_name
-
+    def resolve_proto(self, model_path: str) -> Optional[ProtoType]:
         try:
-            return self.protos[proto_path]
+            return self.protos[model_path]
         except KeyError:
-            logger.error(f'Proto for type {type_name} not found')
+            logger.error(f"Proto for model {model_path} not found")
             return None

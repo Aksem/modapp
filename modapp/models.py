@@ -64,6 +64,8 @@ def orjson_dumps(v, *, default) -> str:
 
 
 class BaseModel(PBaseModel):
+    __modapp_path__: str = ''
+
     class Config:
         allow_population_by_field_name = True
         alias_generator = to_camel

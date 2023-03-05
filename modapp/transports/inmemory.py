@@ -4,6 +4,7 @@ from typing import Optional
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
+from modapp.errors import ServerError
 from modapp.base_transport import BaseTransport, BaseTransportConfig
 from modapp.routing import RoutesDict
 
@@ -30,9 +31,18 @@ class InMemoryTransport(BaseTransport):
     async def stop(self) -> None:
         self.routes = None
 
-    async def handle_request(self, request):
+    async def handle_request(self, route_path: str, request_data: bytes):
+        if self.routes is None:
+            raise Exception("Server need to be started first")  # TODO
+        try:
+            route = self.routes[route_path]
+        except KeyError:
+            raise ServerError()  # TODO
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(self.got_request)  # (route, data, meta)
+            meta = {}  # TODO
+            future = executor.submit(
+                self.got_request, route, request_data, meta, convert_to_raw=False
+            )
             try:
                 data = future.result()
             except Exception as exc:

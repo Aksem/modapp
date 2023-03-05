@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Type
 
 if TYPE_CHECKING:
     from .routing import Route
@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 
 class BaseConverter(ABC):
     @abstractmethod
-    def raw_to_model(self, raw: bytes, route: Route) -> BaseModel:
+    def raw_to_model(self, raw: bytes, model_cls: Type[BaseModel]) -> BaseModel:
         raise NotImplementedError()
 
     @abstractmethod
-    def model_to_raw(self, model: BaseModel, route: Route) -> bytes:
+    def model_to_raw(self, model: BaseModel) -> bytes:
         raise NotImplementedError()
 
     @abstractmethod

@@ -60,6 +60,24 @@ class Modapp:
             for transport in self.transports:
                 loop.run_until_complete(transport.stop())
 
+    async def run_async(self) -> None:
+        for transport in self.transports:
+            await transport.start(self.router.routes)
+
+        logger.info("Server has started")
+
+    def stop(self) -> None:
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        for transport in self.transports:
+            loop.run_until_complete(transport.stop())
+        
+        logger.info("Server stop")
+
     def endpoint(
         self, route_meta: RouteMeta
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:

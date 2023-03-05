@@ -38,12 +38,17 @@ class BaseTransport(ABC):
 
     async def stop(self) -> None:
         raise NotImplementedError()
-    
+
     # TODO: AsyncIterator in raw_data type
-    def got_request(self, route: Route, raw_data: bytes, meta: Dict[str, Union[str, int, bool]]) -> Union[BaseModel, AsyncIterator[BaseModel]]:
+    def got_request(
+        self,
+        route: Route,
+        raw_data: bytes,
+        meta: Dict[str, Union[str, int, bool]],
+    ) -> Union[BaseModel, AsyncIterator[BaseModel], bytes, AsyncIterator[bytes]]:
         # request body
         try:
-            request_data = self.converter.raw_to_model(raw_data, route)
+            request_data = self.converter.raw_to_model(raw_data, route.request_type)
         except InvalidArgumentError as error:
             logger.error(
                 f"Failed to convert request data to model: '{str(raw_data)}' for route"
@@ -60,7 +65,7 @@ class BaseTransport(ABC):
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
                 # modapp validates request handlers, trust it
                 assert isinstance(reply, BaseModel)
-                proto_reply = self.converter.model_to_raw(reply, route)
+                proto_reply = self.converter.model_to_raw(reply)
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
                 request_id = randint(0, 10000000)
@@ -75,7 +80,7 @@ class BaseTransport(ABC):
                         async for reply in route.handler(
                             **handler_arguments
                         ):  # TODO: handle validation error
-                            proto_reply = converter.model_to_raw(reply, route)
+                            proto_reply = converter.model_to_raw(reply)
                             yield proto_reply
                             logger.trace(
                                 "Response stream message:"
@@ -87,7 +92,12 @@ class BaseTransport(ABC):
                         # send error?
                         raise ServerError(error)  # TODO: error only in debug?
 
-                loop = asyncio.get_event_loop()
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
                 asyncio.run_coroutine_threadsafe(
                     handle_request(
                         request_id, handler_arguments, self.converter, route
@@ -104,7 +114,11 @@ class BaseTransport(ABC):
             server_error = ServerError("Internal server error")
             raise server_error
         finally:
-            loop = asyncio.get_event_loop()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
             asyncio.run_coroutine_threadsafe(stack.aclose(), loop)
 
 
