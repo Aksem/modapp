@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Type
 
 from modapp.base_converter import BaseConverter
 from modapp.client import BaseChannel
@@ -12,10 +12,11 @@ class InMemoryChannel(BaseChannel):
         self.transport = transport
 
     async def send_unary_unary(
-        self, route_path: str, request_data: BaseModel, meta: Optional[Dict[str, Any]] = None
+        self, route_path: str, request_data: BaseModel, reply_cls: Type[BaseModel], meta: Optional[Dict[str, Any]] = None
     ) -> BaseModel:
         raw_data = self.converter.model_to_raw(request_data)
-        return await self.transport.handle_request(route_path, raw_data)
+        raw_reply = await self.transport.handle_request(route_path, raw_data)
+        return self.converter.raw_to_model(raw_reply, reply_cls)
 
     async def send_unary_stream(self):
         raise NotImplementedError()

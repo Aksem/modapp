@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Type
 
 from modapp.models import BaseModel
 from modapp.base_converter import BaseConverter
@@ -11,7 +11,7 @@ class BaseChannel(ABC):
 
     @abstractmethod
     async def send_unary_unary(
-        self, route_path: str, request: BaseModel, meta: Optional[Dict[str, Any]] = None
+        self, route_path: str, request: BaseModel, reply_cls: Type[BaseModel], meta: Optional[Dict[str, Any]] = None
     ):
         raise NotImplementedError()
 

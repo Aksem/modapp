@@ -41,7 +41,7 @@ class InMemoryTransport(BaseTransport):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             meta = {}  # TODO
             future = executor.submit(
-                self.got_request, route, request_data, meta, convert_to_raw=False
+                self.got_request, route, request_data, meta
             )
             try:
                 data = future.result()

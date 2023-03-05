@@ -38,70 +38,7 @@ class ProtobufConverter(BaseConverter):
                 self.resolved_protos[model_cls] = proto_request_type
 
         proto_request = proto_request_type.FromString(raw)
-        request_dict = {
-            field[0].name: field[1]
-            for field in type(proto_request).ListFields(proto_request)
-        }
-        request_schema = model_cls.schema()
-        # protobuff ListFields method doesn't return empty string fields, but they are not
-        # neccessary required
-        # request_dict.update({
-        #     field.name: ''
-        #     for field in proto_request.DESCRIPTOR.fields
-        #     if (field.name not in request_dict
-        #         and request_schema['properties'][field.name].get('type', None) == 'string')
-        # })
-
-        # protobuff ListFields method doesn't return boolean fields if they have value False)
-        request_dict.update(
-            {
-                field.name: False
-                for field in proto_request.DESCRIPTOR.fields
-                if (
-                    field.name not in request_dict
-                    and field.name in request_schema["properties"]
-                    and request_schema["properties"][field.name].get("type", None)
-                    == "boolean"
-                )
-            }
-        )
-
-        # protobuff ListFields method doesn't return enum fields if they have value 0)
-        fields_to_update: List[str] = []
-        for field in proto_request.DESCRIPTOR.fields:
-            if (
-                field.name not in request_dict
-                and field.name in request_schema["properties"]
-                and request_schema["properties"][field.name].get("$ref", None)
-                is not None
-            ):
-                definition_name = (
-                    request_schema["properties"][field.name]
-                    .get("$ref", "")
-                    .split("/")[-1]
-                )
-                try:
-                    # can ref be imported? TODO: check
-                    definition = request_schema["definitions"][definition_name]
-                except KeyError:
-                    logger.warning(
-                        f"Field '{field.name}' has reference to definition, but"
-                        " definition was not found"
-                    )
-                    continue
-
-                if definition["type"] == "integer" and "enum" in definition:
-                    fields_to_update.append(field.name)
-        request_dict.update({field: 0 for field in fields_to_update})
-
-        # request is not neccessary valid utf-8 string, handle errors
-        logger.trace(str(request_dict).encode("utf-8", errors="replace"))
-        try:
-            return model_cls(**request_dict)
-        except ValidationError as error:
-            raise InvalidArgumentError(
-                {str(error["loc"][0]): error["msg"] for error in error.errors()}
-            )
+        return self.__proto_obj_to_model(proto_request, model_cls)
 
     def model_to_raw(self, model: BaseModel) -> bytes:
         # if reply is None:
@@ -196,3 +133,105 @@ class ProtobufConverter(BaseConverter):
         except KeyError:
             logger.error(f"Proto for model {model_path} not found")
             return None
+
+    def __proto_obj_to_model(
+        self, proto_obj: ProtoType, model_cls: Type[BaseModel]
+    ) -> BaseModel:
+        request_dict = {
+            field[0].name: field[1] for field in type(proto_obj).ListFields(proto_obj)
+        }
+
+        # updating forward refs is required to resolve all ForwardRef before getting schema
+        model_cls.update_forward_refs()
+        request_schema = model_cls.schema()
+
+        # protobuff ListFields method doesn't return empty string fields, but they are not
+        # neccessary required
+        # request_dict.update({
+        #     field.name: ''
+        #     for field in proto_request.DESCRIPTOR.fields
+        #     if (field.name not in request_dict
+        #         and request_schema['properties'][field.name].get('type', None) == 'string')
+        # })
+
+        # protobuff ListFields method doesn't return boolean fields if they have value False)
+        request_dict.update(
+            {
+                field.name: False
+                for field in proto_obj.DESCRIPTOR.fields
+                if (
+                    field.name not in request_dict
+                    and field.name in request_schema["properties"]
+                    and request_schema["properties"][field.name].get("type", None)
+                    == "boolean"
+                )
+            }
+        )
+        # it also doesn't return list fields if they are empty
+        request_dict.update(
+            {
+                field.name: []
+                for field in proto_obj.DESCRIPTOR.fields
+                if (
+                    field.name not in request_dict
+                    and field.name in request_schema["properties"]
+                    and request_schema["properties"][field.name].get("type", None)
+                    == "array"
+                )
+            }
+        )
+
+        # protobuff ListFields method doesn't return enum fields if they have value 0)
+        fields_to_update: List[str] = []
+        for (field, field_value) in type(proto_obj).ListFields(proto_obj):
+            if (
+                field.name not in request_dict
+                and field.name in request_schema["properties"]
+                and request_schema["properties"][field.name].get("$ref", None)
+                is not None
+            ):
+                definition_name = (
+                    request_schema["properties"][field.name]
+                    .get("$ref", "")
+                    .split("/")[-1]
+                )
+                try:
+                    # can ref be imported? TODO: check
+                    definition = request_schema["definitions"][definition_name]
+                except KeyError:
+                    logger.warning(
+                        f"Field '{field.name}' has reference to definition, but"
+                        " definition was not found"
+                    )
+                    continue
+
+                if definition["type"] == "integer" and "enum" in definition:
+                    fields_to_update.append(field.name)
+
+            # arrays items of complex types need to be converted explicitly
+            if (
+                field.name in request_schema["properties"]
+                and request_schema["properties"][field.name].get("type", None) == "array"
+            ):
+                item_type_ref_path = request_schema["properties"][field.name][
+                    "items"
+                ].get("$ref", None)
+                if item_type_ref_path is not None:
+                    item_model_type = model_cls.__dict__['__fields__'][field.name].outer_type_.__args__[0]
+                    request_dict[field.name] = [
+                        self.__proto_obj_to_model(
+                            item, item_model_type
+                        )
+                        for item in field_value
+                    ]
+
+        request_dict.update({field: 0 for field in fields_to_update})
+
+        # request is not neccessary valid utf-8 string, handle errors
+        logger.trace(str(request_dict).encode("utf-8", errors="replace"))
+        try:
+            return model_cls(**request_dict)
+        except ValidationError as error:
+            raise InvalidArgumentError(
+                {str(error["loc"][0]): error["msg"] for error in error.errors()}
+            )

@@ -45,7 +45,7 @@ class BaseTransport(ABC):
         route: Route,
         raw_data: bytes,
         meta: Dict[str, Union[str, int, bool]],
-    ) -> Union[BaseModel, AsyncIterator[BaseModel], bytes, AsyncIterator[bytes]]:
+    ) -> Union[bytes, AsyncIterator[bytes]]:
         # request body
         try:
             request_data = self.converter.raw_to_model(raw_data, route.request_type)
