@@ -4,7 +4,7 @@ from typing import Optional
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import ServerError
+from modapp.errors import ServerError, BaseModappError
 from modapp.base_transport import BaseTransport, BaseTransportConfig
 from modapp.routing import RoutesDict
 
@@ -45,8 +45,12 @@ class InMemoryTransport(BaseTransport):
             )
             try:
                 data = future.result()
+                assert isinstance(data, bytes)
             except Exception as exc:
+                if isinstance(exc, BaseModappError):
+                    raise exc
                 logger.error(f"Error on handling request {exc}")
+                raise ServerError()  # TODO
             else:
                 return data
 

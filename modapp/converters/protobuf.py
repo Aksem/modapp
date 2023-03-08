@@ -52,7 +52,8 @@ class ProtobufConverter(BaseConverter):
             if not isinstance(model, BaseModel):
                 return
 
-            model_schema = type(model).schema()
+            model.__class__.update_forward_refs()
+            model_schema = model.__class__.schema()
             for field in model.__dict__:
                 # convert datetime to google.protobuf.Timestamp instance
                 # in pydantic model schema datetime has type 'string' and format 'date-time'
