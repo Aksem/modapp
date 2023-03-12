@@ -51,6 +51,24 @@ from pydantic.types import (
     conset,
     constr,
 )
+from pydantic.networks import (
+    AnyUrl,
+    AnyHttpUrl,
+    FileUrl,
+    HttpUrl,
+    stricturl,
+    EmailStr,
+    NameEmail,
+    IPvAnyAddress,
+    IPvAnyInterface,
+    IPvAnyNetwork,
+    PostgresDsn,
+    CockroachDsn,
+    AmqpDsn,
+    RedisDsn,
+    MongoDsn,
+    KafkaDsn,
+)
 
 
 def to_camel(string: str) -> str:
@@ -128,4 +146,21 @@ __all__ = [
     "ByteSize",
     "PastDate",
     "FutureDate",
+    # networks
+    'AnyUrl',
+    'AnyHttpUrl',
+    'FileUrl',
+    'HttpUrl',
+    'stricturl',
+    'EmailStr',
+    'NameEmail',
+    'IPvAnyAddress',
+    'IPvAnyInterface',
+    'IPvAnyNetwork',
+    'PostgresDsn',
+    'CockroachDsn',
+    'AmqpDsn',
+    'RedisDsn',
+    'MongoDsn',
+    'KafkaDsn',
 ]
