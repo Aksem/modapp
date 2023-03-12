@@ -1,5 +1,6 @@
+import inspect
 import concurrent.futures
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from loguru import logger
 
@@ -31,7 +32,7 @@ class InMemoryTransport(BaseTransport):
     async def stop(self) -> None:
         self.routes = None
 
-    async def handle_request(self, route_path: str, request_data: bytes):
+    async def handle_request(self, route_path: str, request_data: bytes) -> bytes | AsyncIterator[bytes]:
         if self.routes is None:
             raise Exception("Server need to be started first")  # TODO
         try:
@@ -45,7 +46,7 @@ class InMemoryTransport(BaseTransport):
             )
             try:
                 data = future.result()
-                assert isinstance(data, bytes)
+                assert isinstance(data, bytes) or inspect.isasyncgen(data)
             except Exception as exc:
                 if isinstance(exc, BaseModappError):
                     raise exc

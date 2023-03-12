@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, Optional, Type, AsyncIterator, TypeVar
 
 from modapp.models import BaseModel
 from modapp.base_converter import BaseConverter
+
+
+T = TypeVar('T', bound=BaseModel)
 
 
 class BaseChannel(ABC):
@@ -12,11 +15,13 @@ class BaseChannel(ABC):
     @abstractmethod
     async def send_unary_unary(
         self, route_path: str, request: BaseModel, reply_cls: Type[BaseModel], meta: Optional[Dict[str, Any]] = None
-    ):
+    ) -> BaseModel:
         raise NotImplementedError()
 
     @abstractmethod
-    async def send_unary_stream(self):
+    async def send_unary_stream(
+        self, route_path: str, request: BaseModel, reply_cls: Type[T], meta: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[T]:
         raise NotImplementedError()
 
     @abstractmethod

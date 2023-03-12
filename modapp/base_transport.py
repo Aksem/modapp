@@ -3,7 +3,14 @@ from __future__ import annotations
 import asyncio
 import traceback
 from abc import ABC
-from typing import TYPE_CHECKING, Optional, TypedDict, Dict, Union, Any, AsyncIterator
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Optional,
+    TypedDict,
+    Union,
+    AsyncIterator,
+)
 from contextlib import AsyncExitStack
 
 from loguru import logger
@@ -68,43 +75,24 @@ class BaseTransport(ABC):
                 proto_reply = self.converter.model_to_raw(reply)
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
-                request_id = randint(0, 10000000)
+                handler = route.get_request_handler(request_data, meta, stack)
 
                 async def handle_request(
-                    request_id: int,
-                    handler_arguments: Dict[str, Any],
+                    handler: Callable,
                     converter: BaseConverter,
                     route: Route,
-                ):
-                    try:
-                        async for reply in route.handler(
-                            **handler_arguments
-                        ):  # TODO: handle validation error
-                            proto_reply = converter.model_to_raw(reply)
-                            yield proto_reply
-                            logger.trace(
-                                "Response stream message:"
-                                f" {method_name}_{request_id}_reply"
-                            )
-                    except Exception as error:
-                        logger.error(error)
-                        traceback.print_exc()
-                        # send error?
-                        raise ServerError(error)  # TODO: error only in debug?
-
+                ) -> AsyncIterator[bytes]:
+                    async for reply in handler():
+                        proto_reply = converter.model_to_raw(reply)
+                        yield proto_reply
+                        logger.trace("Response stream message:")
                 try:
                     loop = asyncio.get_event_loop()
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
 
-                asyncio.run_coroutine_threadsafe(
-                    handle_request(
-                        request_id, handler_arguments, self.converter, route
-                    ),
-                    loop,
-                )
-                return request_id
+                return handle_request(handler, self.converter, route)
         except (NotFoundError, InvalidArgumentError, ServerError) as error:
             traceback.print_exc()
             raise error

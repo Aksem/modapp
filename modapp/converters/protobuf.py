@@ -33,7 +33,7 @@ class ProtobufConverter(BaseConverter):
         except KeyError:
             proto_request_type = self.resolve_proto(model_cls.__modapp_path__)
             if proto_request_type is None:
-                raise ServerError()
+                raise ServerError(f'Proto for {model_cls} not found')
             else:
                 self.resolved_protos[model_cls] = proto_request_type
 
@@ -76,13 +76,13 @@ class ProtobufConverter(BaseConverter):
         fix_json(model, json_reply)
 
         try:
-            proto_reply_type = self.resolved_protos[model.__class__]
+            proto_reply_type = self.resolved_protos[model.__modapp_path__]
         except KeyError:
             proto_reply_type = self.resolve_proto(model.__modapp_path__)
             if proto_reply_type is None:
-                raise ServerError()
+                raise ServerError(f'Proto for {model} not found')
             else:
-                self.resolved_protos[model.__class__] = proto_reply_type
+                self.resolved_protos[model.__modapp_path__] = proto_reply_type
         return proto_reply_type(**json_reply).SerializeToString()
 
     def error_to_raw(self, error: BaseModappError, route: Route) -> bytes:
