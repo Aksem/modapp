@@ -63,10 +63,12 @@ class HandlerStorage:
                     ):
                         # TODO: iterate reply
                         response = self.request_callback(route, request, {})
+                        async for message in response:
+                            await stream.send_message(message)
                     else:
                         
                         response = self.request_callback(route, request, {})
-                    await stream.send_message(response)
+                        await stream.send_message(response)
                 except Exception as e:
                     print(e)
 
