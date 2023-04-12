@@ -5,22 +5,36 @@ from modapp.models import BaseModel
 from modapp.base_converter import BaseConverter
 
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class BaseChannel(ABC):
     def __init__(self, converter: BaseConverter) -> None:
         self.converter = converter
 
+    def __aenter__(self):
+        return self
+
+    def __aexit__(self):
+        ...
+
     @abstractmethod
     async def send_unary_unary(
-        self, route_path: str, request: BaseModel, reply_cls: Type[BaseModel], meta: Optional[Dict[str, Any]] = None
+        self,
+        route_path: str,
+        request: BaseModel,
+        reply_cls: Type[BaseModel],
+        meta: Optional[Dict[str, Any]] = None,
     ) -> BaseModel:
         raise NotImplementedError()
 
     @abstractmethod
     async def send_unary_stream(
-        self, route_path: str, request: BaseModel, reply_cls: Type[T], meta: Optional[Dict[str, Any]] = None
+        self,
+        route_path: str,
+        request: BaseModel,
+        reply_cls: Type[T],
+        meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:
         raise NotImplementedError()
 

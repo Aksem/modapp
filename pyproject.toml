@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modapp"
-version = "0.1.17"
+version = "0.1.18"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
@@ -9,15 +9,24 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.8"
 loguru = "^0.6.0"
-uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'" }
 orjson = "^3.7.9"
 pydantic = "^1.9.1"
-googleapis-common-protos = "^1.56.4"
 
+[tool.poetry.group.uvloop]
+optional = true
+
+[tool.poetry.group.uvloop.dependencies]
+uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'" }
+
+[tool.poetry.group.grpc]
+optional = true
 
 [tool.poetry.group.grpc.dependencies]
-grpclib = "^0.4.2"
+grpclib = "^0.4.3"
+googleapis-common-protos = "^1.56.4"
 
+[tool.poetry.group.socketio]
+optional = true
 
 [tool.poetry.group.socketio.dependencies]
 aiohttp = "^3.8.1"
@@ -35,6 +44,12 @@ bandit = "^1.7.4"
 safety = "^2.1.1"
 mypy = "^0.991"
 types-protobuf = "^4.21.0.2"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+pytest-mock = "^3.10.0"
+pytest-memray = "^1.4.0"
+pyinstrument = "^4.4.0"
+pytest-benchmark = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0b2"]

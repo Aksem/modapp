@@ -63,6 +63,10 @@ class BaseTransport(ABC):
             )
             raise error
 
+        # here or on initialization?
+        # updating is needed if response type has submodels
+        route.reply_type.update_forward_refs()
+
         # TODO: validate if there is validator?
         stack = AsyncExitStack()
 

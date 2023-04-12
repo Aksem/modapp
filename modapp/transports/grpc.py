@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from functools import partial
 from typing import TYPE_CHECKING, Dict, Optional
 
@@ -14,7 +15,7 @@ from ..base_transport import BaseTransport, BaseTransportConfig
 from ..routing import Cardinality
 
 if TYPE_CHECKING:
-    from ..routing import RoutesDict, Route
+    from ..routing import Route, RoutesDict
 
 
 class GrpcTransportConfig(BaseTransportConfig):
@@ -30,7 +31,7 @@ async def recv_request(event: RecvRequest):
 
 
 class RawCodec(CodecBase):
-    __content_subtype__ = 'proto'
+    __content_subtype__ = "proto"
 
     def encode(self, message, message_type):
         return message
@@ -40,7 +41,9 @@ class RawCodec(CodecBase):
 
 
 class HandlerStorage:
-    def __init__(self, routes: RoutesDict, converter: BaseConverter, request_callback) -> None:
+    def __init__(
+        self, routes: RoutesDict, converter: BaseConverter, request_callback
+    ) -> None:
         self.routes = routes
         self.converter = converter
         self.request_callback = request_callback
@@ -50,27 +53,23 @@ class HandlerStorage:
         for route_path, route in self.routes.items():
 
             async def handle(stream: Stream, route: Route):
-                # TODO: avoid large try/except
                 try:
                     request = await stream.recv_message()
                     assert request is not None
 
-                    # request_model = self.converter.raw_to_model(request, route)
                     # TODO: pass meta
                     if (
                         route.proto_cardinality == Cardinality.UNARY_STREAM
                         or route.proto_cardinality == Cardinality.STREAM_STREAM
                     ):
-                        # TODO: iterate reply
                         response = self.request_callback(route, request, {})
                         async for message in response:
                             await stream.send_message(message)
                     else:
-                        
                         response = self.request_callback(route, request, {})
                         await stream.send_message(response)
                 except Exception as e:
-                    print(e)
+                    logger.exception(e)
 
             handle_partial = partial(handle, route=route)
 
