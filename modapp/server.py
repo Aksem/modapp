@@ -1,81 +1,88 @@
+from __future__ import annotations
 import asyncio
 import platform
-from enum import Enum
-from typing import Any, Callable, Dict, Set
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from modapp.routing import APIRouter
+from modapp.routing import APIRouter, RouteMeta
 
-from .transports.grpc import (
-    start as grpc_start,
-    DEFAULT_CONFIG as GRPC_DEFAULT_CONFIG,
-)
-from .transports.socketio import (
-    start as socketio_start,
-    DEFAULT_CONFIG as SOCKETIO_DEFAULT_CONFIG,
-)
-from .types import DecoratedCallable
+if TYPE_CHECKING:
+    from typing import Callable, Dict, Optional, Set
+
+    from modapp.base_transport import BaseTransport, BaseTransportConfig
+    from modapp.types import DecoratedCallable
+    from modapp.dependencies import DependencyOverrides
+
 
 # uvloop doesn't support Windows yet
-if platform.system() != 'Windows':
-    import uvloop
-    uvloop.install()
+if platform.system() != "Windows":
+    # uvloop is optional dependency
+    try:
+        import uvloop
 
-
-class Transport(Enum):
-    LOCAL = "local"
-    GRPC = "grpc"
-    SOCKETIO = "socketio"
+        # install uvloop event loop to get better performance of event loop
+        uvloop.install()
+    except ImportError:
+        ...
 
 
 class Modapp:
-    def __init__(self, communications: Set[Transport]):
-        self.communications = communications
-        self.config = {}
-        self.router = APIRouter()
-        if Transport.GRPC in communications:
-            self.config[Transport.GRPC] = GRPC_DEFAULT_CONFIG.copy()
-        if Transport.SOCKETIO in communications:
-            self.config[Transport.SOCKETIO] = SOCKETIO_DEFAULT_CONFIG.copy()
+    def __init__(
+        self,
+        transports: Set[BaseTransport],
+        config: Optional[Dict[str, BaseTransportConfig]] = None,
+        dependency_overrides: Optional[DependencyOverrides] = None,
+    ) -> None:
+        self.transports = transports
+        self.config: Dict[str, BaseTransportConfig] = {}
+        if config is not None:
+            self.config = config
+        self.dependency_overrides = dependency_overrides
+        self.router = APIRouter(dependency_overrides=dependency_overrides)
 
-    def run(self):
+    def run(self) -> None:
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        grpc_server = None
-        if Transport.GRPC in self.communications:
-            grpc_server = loop.run_until_complete(
-                grpc_start(self.config[Transport.GRPC], self.router.routes)
-            )
+        for transport in self.transports:
+            loop.run_until_complete(transport.start(self.router.routes))
 
-        socketio_server = None
-        if Transport.SOCKETIO in self.communications:
-            socketio_server = loop.run_until_complete(
-                socketio_start(self.config[Transport.SOCKETIO], self.router.routes)
-            )
         try:
             logger.info("Server has started")
             loop.run_forever()
         except KeyboardInterrupt:
             logger.info("Server stop")
-            if Transport.GRPC in self.communications and grpc_server is not None:
-                grpc_server.close()
 
-            if (
-                Transport.SOCKETIO in self.communications
-                and socketio_server is not None
-            ):
-                loop.run_until_complete(socketio_server.cleanup())
+            for transport in self.transports:
+                loop.run_until_complete(transport.stop())
+
+    async def run_async(self) -> None:
+        for transport in self.transports:
+            await transport.start(self.router.routes)
+
+        logger.info("Server has started")
+
+    def stop(self) -> None:
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        for transport in self.transports:
+            loop.run_until_complete(transport.stop())
+        
+        logger.info("Server stop")
 
     def endpoint(
-        self, route_path: str
+        self, route_meta: RouteMeta
     ) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
-            self.router.add_endpoint(route_path, func)
+            self.router.add_endpoint(route_meta, func)
             return func
 
         return decorator
@@ -84,5 +91,7 @@ class Modapp:
         for route in router.routes.values():
             self.router.add_route(route)
 
-    def update_config(self, communication: Transport, config: Dict[str, Any]):
-        self.config[communication].update(config)
+    def update_config(
+        self, transport: BaseTransport, config: BaseTransportConfig
+    ) -> None:
+        self.config[transport.CONFIG_KEY].update(config)

@@ -1,107 +1,125 @@
-import asyncio
-import json
+from __future__ import annotations
+
 from functools import partial
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Optional
 
 from grpclib.const import Handler
-from grpclib.events import listen, RecvRequest
-from grpclib.server import Server
+from grpclib.encoding.base import CodecBase
+from grpclib.events import RecvRequest, listen
+from grpclib.server import Server, Stream
 from loguru import logger
+from typing_extensions import NotRequired
 
-from ..routing import Route, Cardinality
+from ..base_converter import BaseConverter
+from ..base_transport import BaseTransport, BaseTransportConfig
+from ..routing import Cardinality
 
-DEFAULT_CONFIG = {
-    "port": 50051
-}
+if TYPE_CHECKING:
+    from ..routing import Route, RoutesDict
+
+
+class GrpcTransportConfig(BaseTransportConfig):
+    address: NotRequired[str]
+    port: NotRequired[int]
+
+
+DEFAULT_CONFIG: GrpcTransportConfig = {"address": "127.0.0.1", "port": 50051}
 
 
 async def recv_request(event: RecvRequest):
     logger.trace(f"Income request: {event.method_name}")
 
 
-async def format_req(request_type, request_stream):
-    request = await request_stream.recv_message()
-    assert request is not None
+class RawCodec(CodecBase):
+    __content_subtype__ = "proto"
 
-    print("req->", request_type)
-    # return request_type(**{ field.name: request[field.name] for field in request.DESCRIPTOR.fields })
-    # field is tuple with FieldDescriptor as first element and field value as second
-    return request_type(
-        **{field[0].name: field[1] for field in type(request).ListFields(request)}
-    )
+    def encode(self, message, message_type):
+        return message
 
-
-def format_res(response_type, response):
-    print("res->", response_type, json.loads(response.json(by_alias=True)))
-    # TODO: optimize, implement with json dump&load
-    # Problem: path to sring recursively
-    return response_type(**json.loads(response.json(by_alias=True)))
+    def decode(self, data: bytes, message_type):
+        return data
 
 
 class HandlerStorage:
-    def __init__(self, routes: Dict[str, Route]):
+    def __init__(
+        self, routes: RoutesDict, converter: BaseConverter, request_callback
+    ) -> None:
         self.routes = routes
+        self.converter = converter
+        self.request_callback = request_callback
 
     def __mapping__(self):
-        result = {}
+        result: Dict[str, Handler] = {}
         for route_path, route in self.routes.items():
 
-            async def handle(stream, route):
-                formatted_request = await format_req(route.request_type, stream)
-                if (
-                    route.proto_cardinality == Cardinality.UNARY_STREAM
-                    or route.proto_cardinality == Cardinality.STREAM_STREAM
-                ):
-                    # TODO: create context and pass to handler
-                    response = await route.handler(formatted_request)
-                else:
-                    response = route.handler(formatted_request)
-                await stream.send_message(format_res(route.proto_reply_type, response))
+            async def handle(stream: Stream, route: Route):
+                try:
+                    request = await stream.recv_message()
+                    assert request is not None
+
+                    # TODO: pass meta
+                    if (
+                        route.proto_cardinality == Cardinality.UNARY_STREAM
+                        or route.proto_cardinality == Cardinality.STREAM_STREAM
+                    ):
+                        response = self.request_callback(route, request, {})
+                        async for message in response:
+                            await stream.send_message(message)
+                    else:
+                        response = self.request_callback(route, request, {})
+                        await stream.send_message(response)
+                except Exception as e:
+                    logger.exception(e)
 
             handle_partial = partial(handle, route=route)
 
             new_handler = Handler(
                 handle_partial,
                 route.proto_cardinality,
-                route.proto_request_type,
-                route.proto_reply_type,
+                # request and reply are already coded here, no coding is needed anymore
+                None,
+                None,
             )
             result[route_path] = new_handler
 
         return result
 
 
-async def start(config: Dict[str, Union[str, int]], routes: Dict[str, Route]):
-    # TODO: form handlers and pass to server
-    handler_storage = HandlerStorage(routes)
-    server = Server([handler_storage])
+class GrpcTransport(BaseTransport):
+    CONFIG_KEY = "grpc"
 
-    listen(server, RecvRequest, recv_request)
+    def __init__(
+        self, config: GrpcTransportConfig, converter: Optional[BaseConverter] = None
+    ) -> None:
+        super().__init__(config, converter)
+        self.server: Optional[Server] = None
 
-    port = int(config.get("port", DEFAULT_CONFIG["port"]))
-    # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
-    await server.start("127.0.0.1", port)
-    # await server.wait_closed()
+    async def start(self, routes: RoutesDict) -> None:
+        handler_storage = HandlerStorage(routes, self.converter, self.got_request)
+        self.server = Server([handler_storage], codec=RawCodec())
 
-    logger.info(f"Start grpc server: 127.0.0.1:{port}")
+        listen(self.server, RecvRequest, recv_request)
 
-    return server
-
-
-if __name__ == "__main__":
-
-    def get_or_create_eventloop():
         try:
-            return asyncio.get_event_loop()
-        except RuntimeError as ex:
-            if "There is no current event loop in thread" in str(ex):
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                return asyncio.get_event_loop()
+            address: str = self.config.get("address", DEFAULT_CONFIG["address"])
+            port: int = self.config.get("port", DEFAULT_CONFIG["port"])
+        except KeyError as e:
+            raise ValueError(
+                f"{e.args[0]} is missed in default configuration of grpc transport"
+            )
 
-    asyncio.run(start({}))
-    loop = get_or_create_eventloop()
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        loop.stop()
+        # with graceful_exit([server]):  # TODO: replace, because it doesn't work on windows
+        await self.server.start(address, port)
+        # await server.wait_closed()
+
+        logger.info(f"Start grpc server: {address}:{port}")
+
+    async def stop(self) -> None:
+        if self.server is not None:
+            self.server.close()
+            self.server = None
+        else:
+            logger.warning("Cannot stop not started server")
+
+
+__all__ = ["GrpcTransport", "GrpcTransportConfig"]

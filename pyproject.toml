@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modapp"
-version = "0.1.17"
+version = "0.1.18"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
@@ -9,20 +9,82 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.8"
 loguru = "^0.6.0"
-uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'" }
 orjson = "^3.7.9"
 pydantic = "^1.9.1"
-googleapis-common-protos = "^1.56.4"
 
+[tool.poetry.group.uvloop]
+optional = true
+
+[tool.poetry.group.uvloop.dependencies]
+uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'" }
+
+[tool.poetry.group.grpc]
+optional = true
 
 [tool.poetry.group.grpc.dependencies]
-grpclib = "^0.4.2"
+grpclib = "^0.4.3"
+googleapis-common-protos = "^1.56.4"
 
+[tool.poetry.group.socketio]
+optional = true
 
 [tool.poetry.group.socketio.dependencies]
 aiohttp = "^3.8.1"
 python-socketio = "^5.7.1"
 
+[tool.poetry.group.dev.dependencies]
+isort = "^5.10.1"
+black = "^22.6.0"
+flake8 = "^5.0.1"
+flake8-docstrings = "^1.6.0"
+darglint = "^1.8.1"
+flake8-bugbear = "^22.7.1"
+flake8-comprehensions = "^3.10.0"
+bandit = "^1.7.4"
+safety = "^2.1.1"
+mypy = "^0.991"
+types-protobuf = "^4.21.0.2"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+pytest-mock = "^3.10.0"
+pytest-memray = "^1.4.0"
+pyinstrument = "^4.4.0"
+pytest-benchmark = "^4.0.0"
+
 [build-system]
 requires = ["poetry-core>=1.1.0b2"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.black]
+target-version = ['py38', 'py39', 'py310']
+preview = true
+exclude = '''
+(
+    asv_bench/env
+  | \.egg
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.nox
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | setup.py
+)
+'''
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+show_error_codes = true
+warn_unused_ignores = true
