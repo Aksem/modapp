@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modapp"
-version = "0.1.18"
+version = "0.1.19"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
@@ -11,26 +11,16 @@ python = "^3.8"
 loguru = "^0.6.0"
 orjson = "^3.7.9"
 pydantic = "^1.9.1"
+uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'", optional = true }
+grpclib = { version = "^0.4.3", optional = true }
+googleapis-common-protos = { version = "^1.56.4", optional = true }
+aiohttp = { version = "^3.8.1", optional = true }
+python-socketio = { version = "^5.7.1", optional = true }
 
-[tool.poetry.group.uvloop]
-optional = true
-
-[tool.poetry.group.uvloop.dependencies]
-uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'" }
-
-[tool.poetry.group.grpc]
-optional = true
-
-[tool.poetry.group.grpc.dependencies]
-grpclib = "^0.4.3"
-googleapis-common-protos = "^1.56.4"
-
-[tool.poetry.group.socketio]
-optional = true
-
-[tool.poetry.group.socketio.dependencies]
-aiohttp = "^3.8.1"
-python-socketio = "^5.7.1"
+[tool.poetry.extras]
+uvloop = ["uvloop"]
+grpc = ["grpclib", "googleapis-common-protos"]
+socketio = ["aiohttp", "python-socketio"]
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.10.1"
