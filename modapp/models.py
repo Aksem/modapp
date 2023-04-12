@@ -1,6 +1,26 @@
+import re
+
 import orjson
 from pydantic import BaseModel as PBaseModel
 from pydantic import ValidationError, validator
+from pydantic.networks import (
+    AmqpDsn,
+    AnyHttpUrl,
+    AnyUrl,
+    CockroachDsn,
+    EmailStr,
+    FileUrl,
+    HttpUrl,
+    IPvAnyAddress,
+    IPvAnyInterface,
+    IPvAnyNetwork,
+    KafkaDsn,
+    MongoDsn,
+    NameEmail,
+    PostgresDsn,
+    RedisDsn,
+    stricturl,
+)
 from pydantic.types import (
     UUID1,
     UUID3,
@@ -51,29 +71,16 @@ from pydantic.types import (
     conset,
     constr,
 )
-from pydantic.networks import (
-    AnyUrl,
-    AnyHttpUrl,
-    FileUrl,
-    HttpUrl,
-    stricturl,
-    EmailStr,
-    NameEmail,
-    IPvAnyAddress,
-    IPvAnyInterface,
-    IPvAnyNetwork,
-    PostgresDsn,
-    CockroachDsn,
-    AmqpDsn,
-    RedisDsn,
-    MongoDsn,
-    KafkaDsn,
-)
 
 
 def to_camel(string: str) -> str:
     splitted = string.split("_")
     return splitted[0] + "".join(word.capitalize() for word in splitted[1:])
+
+# TODO: move
+pattern = re.compile(r'(?<!^)(?=[A-Z])')
+def to_snake(camelStr: str) -> str:
+    return pattern.sub('_', camelStr).lower()
 
 
 def orjson_dumps(v, *, default) -> str:
