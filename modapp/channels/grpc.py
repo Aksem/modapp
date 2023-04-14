@@ -2,8 +2,11 @@ from typing import AsyncIterator, Optional, Dict, Any, Type, TypeVar
 
 from grpclib import client as grpclib_client
 from grpclib.encoding.base import CodecBase
+from grpclib.exceptions import GRPCError
+from grpclib.const import Status as GrpcStatus
 
 from modapp.base_converter import BaseConverter
+from modapp.errors import BaseModappError, NotFoundError, InvalidArgumentError, ServerError
 from modapp.client import BaseChannel
 from modapp.models import BaseModel
 
@@ -29,7 +32,6 @@ class GrpcChannel(BaseChannel):
         super().__init__(converter)
 
         self.__grpclib_channel: Optional[grpclib_client.Channel] = None
-        # TODO: channel exit
         self.__host = host
         self.__port = port
 
@@ -55,13 +57,17 @@ class GrpcChannel(BaseChannel):
             self.__grpclib_channel = self.__establish_channel()
 
         raw_data = self.converter.model_to_raw(request_data)
+        # TODO: grpc errors to modapp errors
         method = grpclib_client.UnaryUnaryMethod(
             self.__grpclib_channel,
             route_path,
             None,
             None,
         )
-        raw_reply = await method(raw_data)
+        try:
+            raw_reply = await method(raw_data)
+        except GRPCError as grpc_error:
+            raise self.__grpc_error_to_modapp(grpc_error)
         return self.converter.raw_to_model(raw_reply, reply_cls)
 
     async def send_unary_stream(
@@ -81,13 +87,29 @@ class GrpcChannel(BaseChannel):
             None,
             None,
         )
-        async with method.open(timeout=0) as stream:
-            await stream.send_message(raw_data, end=True)
-            async for raw_message in stream:
-                yield self.converter.raw_to_model(raw_message, reply_cls)
+        try:
+            async with method.open(timeout=0) as stream:
+                await stream.send_message(raw_data, end=True)
+                async for raw_message in stream:
+                    yield self.converter.raw_to_model(raw_message, reply_cls)
+        except GRPCError as grpc_error:
+            raise self.__grpc_error_to_modapp(grpc_error)
 
     async def send_stream_unary(self):
+        # TODO
         raise NotImplementedError()
 
     async def send_stream_stream(self):
+        # TODO
         raise NotImplementedError()
+
+    def __grpc_error_to_modapp(self, grpc_error: GRPCError) -> BaseModappError:
+        print(1, grpc_error.status)
+        if grpc_error.status == GrpcStatus.NOT_FOUND:
+            print(2)
+            return NotFoundError(grpc_error.message)
+        elif grpc_error.status == GrpcStatus.INVALID_ARGUMENT:
+            # TODO: add method in converter to convert proto to error obj payload
+            return InvalidArgumentError({})
+        else:
+            return ServerError(grpc_error.message)

@@ -181,17 +181,17 @@ class ProtobufConverter(BaseConverter):
 
         return proto_reply_type(**json_reply).SerializeToString()
 
-    def error_to_raw(self, error: BaseModappError, route: Route) -> bytes:
+    def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
-            return self.__invalid_argument_to_raw(error, route)
+            return self.__invalid_argument_to_raw(error)
         elif isinstance(error, NotFoundError):
-            return self.__not_found_to_raw(error, route)
+            return self.__not_found_to_raw(error)
         elif isinstance(error, ServerError):
-            return self.__server_error_to_raw(error, route)
+            return self.__server_error_to_raw(error)
         raise NotImplementedError()
 
     def __invalid_argument_to_raw(
-        self, error: InvalidArgumentError, route: Route
+        self, error: InvalidArgumentError
     ) -> bytes:
         status_proto = status_pb2.Status(
             code=Status.INVALID_ARGUMENT.value,
@@ -210,13 +210,13 @@ class ProtobufConverter(BaseConverter):
         detail_container.Pack(detail)
         return status_proto.SerializeToString()
 
-    def __not_found_to_raw(self, error: NotFoundError, route: Route) -> bytes:
+    def __not_found_to_raw(self, error: NotFoundError) -> bytes:
         status_proto = status_pb2.Status(
             code=Status.NOT_FOUND.value, message="Not found."
         )
         return status_proto.SerializeToString()
 
-    def __server_error_to_raw(self, error: ServerError, route: Route) -> bytes:
+    def __server_error_to_raw(self, error: ServerError) -> bytes:
         if len(error.args) > 0:
             message = error.args[0]
         else:

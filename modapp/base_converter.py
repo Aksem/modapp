@@ -18,15 +18,11 @@ class BaseConverter(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def error_to_raw(self, error: BaseModappError, route: Optional[Route]) -> bytes:
+    def error_to_raw(self, error: BaseModappError) -> bytes:
         """Convert error object to raw data.
-
-        Route is optional, because it's not always available, e.g. NotFoundError if requested
-        endpoint was not found.
 
         Args:
             error (BaseModappError): error to convert
-            route (Optional[Route]): route on which error occurred
 
         Raises:
             NotImplementedError: converter doesn't support this error type

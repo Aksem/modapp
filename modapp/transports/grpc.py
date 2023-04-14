@@ -3,15 +3,17 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Dict, Optional
 
-from grpclib.const import Handler
+from grpclib.const import Handler, Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
 from grpclib.events import RecvRequest, listen
+from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
 from typing_extensions import NotRequired
 
 from ..base_converter import BaseConverter
 from ..base_transport import BaseTransport, BaseTransportConfig
+from ..errors import BaseModappError, ServerError, InvalidArgumentError, NotFoundError
 from ..routing import Cardinality
 
 if TYPE_CHECKING:
@@ -38,6 +40,23 @@ class RawCodec(CodecBase):
 
     def decode(self, data: bytes, message_type):
         return data
+
+
+def modapp_error_to_grpc(
+    modapp_error: BaseModappError, converter: BaseConverter
+) -> GRPCError:
+    if isinstance(modapp_error, NotFoundError):
+        return GRPCError(status=GrpcStatus.NOT_FOUND)
+    elif isinstance(modapp_error, InvalidArgumentError):
+        return GRPCError(
+            status=GrpcStatus.INVALID_ARGUMENT,
+            details=converter.error_to_raw(modapp_error),
+        )
+    elif isinstance(modapp_error, ServerError):
+        # does the same as return statement below, but shows explicitly mapping of ServerError to
+        # GRPCError
+        return GRPCError(status=GrpcStatus.INTERNAL)
+    return GRPCError(status=GrpcStatus.INTERNAL)
 
 
 class HandlerStorage:
@@ -68,6 +87,8 @@ class HandlerStorage:
                     else:
                         response = self.request_callback(route, request, {})
                         await stream.send_message(response)
+                except BaseModappError as modapp_error:
+                    raise modapp_error_to_grpc(modapp_error, self.converter)
                 except Exception as e:
                     logger.exception(e)
 
