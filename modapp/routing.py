@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import typing
+import types
 from collections import namedtuple
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, contextmanager
@@ -161,7 +161,7 @@ class APIRouter:
         request_type = handler_signature.parameters["request"].annotation
         return_type = handler_signature.return_annotation
         if (
-            isinstance(return_type, typing._GenericAlias)
+            isinstance(return_type, types.GenericAlias)
             and return_type.__origin__ == AsyncIterator
             and len(return_type.__args__) > 0
         ):

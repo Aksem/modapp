@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "modapp"
-version = "0.1.21"
+version = "0.2.0"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 loguru = "^0.6.0"
 orjson = "^3.7.9"
 pydantic = "^1.9.1"
