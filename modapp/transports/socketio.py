@@ -49,7 +49,7 @@ class SocketioTransport(BaseTransport):
         async def grpc_request_v2(
             sid, method_name: str, meta: Dict[str, Union[str, int, bool]], data: bytes
         ):
-            logger.trace("request_v2 " + str(meta))
+            logger.trace(f"request_v2 {method_name} {str(meta)}")
 
             try:
                 route = routes[method_name]
@@ -73,18 +73,17 @@ class SocketioTransport(BaseTransport):
                 route.proto_cardinality == Cardinality.UNARY_UNARY
                 or route.proto_cardinality == Cardinality.STREAM_UNARY
             ):
-                print(reply)
                 return (None, reply)
             else:
                 assert isinstance(reply, AsyncIterator)
                 async for reply_item in reply:
                     await sio.emit(f"{method_name}_{request_id}_reply", reply_item)
 
-        runner = web.AppRunner(app)
-        await runner.setup()
+        self.runner = web.AppRunner(app)
+        await self.runner.setup()
         address: str = self.config.get("address", DEFAULT_CONFIG.get("address"))
         port: int = self.config.get("port", DEFAULT_CONFIG.get("port"))
-        site = web.TCPSite(runner, address, port)
+        site = web.TCPSite(self.runner, address, port)
         await site.start()
         logger.info(f"Start socketio server: {address}:{port}")
 

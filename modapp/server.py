@@ -48,22 +48,15 @@ class Modapp:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        for transport in self.transports:
-            loop.run_until_complete(transport.start(self.router.routes))
+        loop.run_until_complete(self.run_async())
 
         try:
-            logger.info("Server has started")
             loop.run_forever()
         except KeyboardInterrupt:
-            logger.info("Server stop")
-
-            for transport in self.transports:
-                loop.run_until_complete(transport.stop())
+            self.stop()
 
     async def run_async(self) -> None:
-        for transport in self.transports:
-            await transport.start(self.router.routes)
-
+        await asyncio.gather(*[transport.start(self.router.routes) for transport in self.transports])
         logger.info("Server has started")
 
     def stop(self) -> None:
@@ -73,9 +66,10 @@ class Modapp:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        for transport in self.transports:
-            loop.run_until_complete(transport.stop())
-        
+        loop.run_until_complete(self.stop_async())
+
+    async def stop_async(self) -> None:
+        await asyncio.gather(*[transport.stop() for transport in self.transports])
         logger.info("Server stop")
 
     def endpoint(

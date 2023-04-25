@@ -104,9 +104,7 @@ class GrpcChannel(BaseChannel):
         raise NotImplementedError()
 
     def __grpc_error_to_modapp(self, grpc_error: GRPCError) -> BaseModappError:
-        print(1, grpc_error.status)
         if grpc_error.status == GrpcStatus.NOT_FOUND:
-            print(2)
             return NotFoundError(grpc_error.message)
         elif grpc_error.status == GrpcStatus.INVALID_ARGUMENT:
             # TODO: add method in converter to convert proto to error obj payload
