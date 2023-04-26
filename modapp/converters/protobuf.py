@@ -11,7 +11,6 @@ from google.rpc import status_pb2
 from google.rpc.error_details_pb2 import BadRequest
 
 from modapp.models import BaseModel, to_camel, to_snake
-from modapp.routing import Route
 from modapp.base_converter import BaseConverter
 from modapp.errors import InvalidArgumentError, Status, NotFoundError, ServerError
 
@@ -57,7 +56,7 @@ def model_field_type_matches_proto_field(
 
 
 def get_schema_properties(model_schema: Dict[str, Any]) -> Dict[str, Any]:
-    model_name = model_schema.get('$ref', '').split('/')[-1]
+    model_name = model_schema.get("$ref", "").split("/")[-1]
     if "properties" in model_schema:
         return model_schema["properties"]
     elif (
@@ -67,9 +66,7 @@ def get_schema_properties(model_schema: Dict[str, Any]) -> Dict[str, Any]:
         and "properties" in model_schema["definitions"][model_name]
     ):
         # 'submodels'(models of fields) have $ref in schema and definitions
-        return model_schema["definitions"][model_name][
-            "properties"
-        ]
+        return model_schema["definitions"][model_name]["properties"]
     else:
         raise Exception(f"No schema found for {model_name}")
 
@@ -190,9 +187,7 @@ class ProtobufConverter(BaseConverter):
             return self.__server_error_to_raw(error)
         raise NotImplementedError()
 
-    def __invalid_argument_to_raw(
-        self, error: InvalidArgumentError
-    ) -> bytes:
+    def __invalid_argument_to_raw(self, error: InvalidArgumentError) -> bytes:
         status_proto = status_pb2.Status(
             code=Status.INVALID_ARGUMENT.value,
             message="Invalid data in request.",
@@ -238,7 +233,9 @@ class ProtobufConverter(BaseConverter):
             field[0].name: field[1] for field in type(proto_obj).ListFields(proto_obj)
         }
 
-        def update_type_refs(model_type: Type[BaseModel], updated_type_refs: Set[str]) -> None:
+        def update_type_refs(
+            model_type: Type[BaseModel], updated_type_refs: Set[str]
+        ) -> None:
             if model_type.__name__ in updated_type_refs:
                 return
 
@@ -276,8 +273,7 @@ class ProtobufConverter(BaseConverter):
                 if (
                     field.name not in request_dict
                     and field.name in schema_properties
-                    and schema_properties[field.name].get("type", None)
-                    == "boolean"
+                    and schema_properties[field.name].get("type", None) == "boolean"
                 )
             }
         )
@@ -290,8 +286,7 @@ class ProtobufConverter(BaseConverter):
                 if (
                     field.name not in request_dict
                     and field.name in schema_properties
-                    and schema_properties[field.name].get("type", None)
-                    == "array"
+                    and schema_properties[field.name].get("type", None) == "array"
                 )
             }
         )
@@ -302,13 +297,10 @@ class ProtobufConverter(BaseConverter):
             if (
                 field.name not in request_dict
                 and field.name in schema_properties
-                and schema_properties[field.name].get("$ref", None)
-                is not None
+                and schema_properties[field.name].get("$ref", None) is not None
             ):
                 definition_name = (
-                    schema_properties[field.name]
-                    .get("$ref", "")
-                    .split("/")[-1]
+                    schema_properties[field.name].get("$ref", "").split("/")[-1]
                 )
                 try:
                     # can ref be imported? TODO: check
@@ -323,16 +315,16 @@ class ProtobufConverter(BaseConverter):
                 if definition["type"] == "integer" and "enum" in definition:
                     fields_to_update.append(field.name)
 
-            # arrays items of complex types need to be converted explicitly
+            # arrays need to be converted explicitly
             if (
                 field.name in schema_properties
-                and schema_properties[field.name].get("type", None)
-                == "array"
+                and schema_properties[field.name].get("type", None) == "array"
             ):
-                item_type_ref_path = schema_properties[field.name][
-                    "items"
-                ].get("$ref", None)
+                item_type_ref_path = schema_properties[field.name]["items"].get(
+                    "$ref", None
+                )
                 if item_type_ref_path is not None:
+                    # arrays items of complex types need to be converted explicitly
                     item_model_type = model_cls.__dict__["__fields__"][
                         to_snake(field.name)
                     ].outer_type_.__args__[0]
@@ -340,9 +332,20 @@ class ProtobufConverter(BaseConverter):
                         self.__proto_obj_to_model(item, item_model_type)
                         for item in field_value
                     ]
+                else:
+                    # arrays with simple types as well: RepeatedScalarContainer -> list
+                    request_dict[field.name] = [*request_dict[field.name]]
+
+            # convert subobjects
+            if (
+                field.name in schema_properties
+                and schema_properties[field.name].get("$ref", None) is not None
+            ):
+                item_model_type = model_cls.__dict__["__fields__"][to_snake(field.name)].type_
+                request_dict[field.name] = self.__proto_obj_to_model(request_dict[field.name], item_model_type)
 
         request_dict.update({field: 0 for field in fields_to_update})
-        
+
         # convert one_of fields to union in model
         # one_of_fields = proto_obj.DESCRIPTOR.oneofs_by_name.keys()
         # for one_of_field in one_of_fields:
