@@ -25,12 +25,19 @@ def model_field_type_matches_proto_field(
     model: BaseModel, field: str, proto_field: protobuf_descriptor.FieldDescriptor
 ) -> bool:
     field_value = model.__dict__[field]
-    # TODO: messages
     # primitive types
     # TODO: other types
     return (
-        proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_STRING
-        and isinstance(field_value, str)
+        # string
+        (
+            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_STRING
+            and isinstance(field_value, str)
+        )
+        # messages
+        or (
+            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
+            and proto_field.message_type.full_name == field_value.__modapp_path__
+        )
     )
 
     """
@@ -152,6 +159,9 @@ class ProtobufConverter(BaseConverter):
                         raise ServerError(
                             f"Cannot match field '{field_camel_case}' in proto"
                         )
+                    if subfield.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
+                        # first fix submessage, then process parent message
+                        fix_json(model.__dict__[field], json[field_camel_case])
                     json[subfield.name] = json[field_camel_case]
                     del json[field_camel_case]
                 elif "$ref" in schema_properties[field_camel_case]:
@@ -341,8 +351,12 @@ class ProtobufConverter(BaseConverter):
                 field.name in schema_properties
                 and schema_properties[field.name].get("$ref", None) is not None
             ):
-                item_model_type = model_cls.__dict__["__fields__"][to_snake(field.name)].type_
-                request_dict[field.name] = self.__proto_obj_to_model(request_dict[field.name], item_model_type)
+                item_model_type = model_cls.__dict__["__fields__"][
+                    to_snake(field.name)
+                ].type_
+                request_dict[field.name] = self.__proto_obj_to_model(
+                    request_dict[field.name], item_model_type
+                )
 
         request_dict.update({field: 0 for field in fields_to_update})
 
