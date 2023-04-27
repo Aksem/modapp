@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import timezone
 from typing import List, TYPE_CHECKING, Dict, Optional, Any, Type, Set
+import inspect
 
 import orjson
 import google.protobuf.descriptor as protobuf_descriptor
@@ -159,7 +160,10 @@ class ProtobufConverter(BaseConverter):
                         raise ServerError(
                             f"Cannot match field '{field_camel_case}' in proto"
                         )
-                    if subfield.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
+                    if (
+                        subfield.type
+                        == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
+                    ):
                         # first fix submessage, then process parent message
                         fix_json(model.__dict__[field], json[field_camel_case])
                     json[subfield.name] = json[field_camel_case]
@@ -239,6 +243,8 @@ class ProtobufConverter(BaseConverter):
     def __proto_obj_to_model(
         self, proto_obj: ProtoType, model_cls: Type[BaseModel]
     ) -> BaseModel:
+        if isinstance(proto_obj, list):
+            print(1)
         request_dict = {
             field[0].name: field[1] for field in type(proto_obj).ListFields(proto_obj)
         }
@@ -301,73 +307,105 @@ class ProtobufConverter(BaseConverter):
             }
         )
 
+        # convert one_of fields to union in model
+        for one_of_field in proto_obj.DESCRIPTOR.oneofs_by_name.values():
+            for subfield in one_of_field.fields:
+                if subfield.name in request_dict:
+                    request_dict[one_of_field.name] = request_dict[subfield.name]
+                    del request_dict[subfield.name]
+
         # protobuff ListFields method doesn't return enum fields if they have value 0)
         fields_to_update: List[str] = []
         for field, field_value in type(proto_obj).ListFields(proto_obj):
+            # first resolve one_of: get its name
+            if field.containing_oneof is not None:
+                field_name = field.containing_oneof.name
+            else:
+                field_name = field.name
+
             if (
-                field.name not in request_dict
-                and field.name in schema_properties
-                and schema_properties[field.name].get("$ref", None) is not None
+                field_name not in request_dict
+                and field_name in schema_properties
+                and schema_properties[field_name].get("$ref", None) is not None
             ):
                 definition_name = (
-                    schema_properties[field.name].get("$ref", "").split("/")[-1]
+                    schema_properties[field_name].get("$ref", "").split("/")[-1]
                 )
                 try:
                     # can ref be imported? TODO: check
                     definition = request_schema["definitions"][definition_name]
                 except KeyError:
                     logger.warning(
-                        f"Field '{field.name}' has reference to definition, but"
+                        f"Field '{field_name}' has reference to definition, but"
                         " definition was not found"
                     )
                     continue
 
                 if definition["type"] == "integer" and "enum" in definition:
-                    fields_to_update.append(field.name)
+                    fields_to_update.append(field_name)
 
             # arrays need to be converted explicitly
             if (
-                field.name in schema_properties
-                and schema_properties[field.name].get("type", None) == "array"
+                field_name in schema_properties
+                and schema_properties[field_name].get("type", None) == "array"
             ):
-                item_type_ref_path = schema_properties[field.name]["items"].get(
+                item_type_ref_path = schema_properties[field_name]["items"].get(
                     "$ref", None
                 )
                 if item_type_ref_path is not None:
                     # arrays items of complex types need to be converted explicitly
                     item_model_type = model_cls.__dict__["__fields__"][
-                        to_snake(field.name)
+                        to_snake(field_name)
                     ].outer_type_.__args__[0]
-                    request_dict[field.name] = [
+                    request_dict[field_name] = [
                         self.__proto_obj_to_model(item, item_model_type)
                         for item in field_value
                     ]
                 else:
                     # arrays with simple types as well: RepeatedScalarContainer -> list
-                    request_dict[field.name] = [*request_dict[field.name]]
+                    request_dict[field_name] = [*request_dict[field_name]]
 
             # convert subobjects
-            if (
-                field.name in schema_properties
-                and schema_properties[field.name].get("$ref", None) is not None
-            ):
-                item_model_type = model_cls.__dict__["__fields__"][
-                    to_snake(field.name)
-                ].type_
-                request_dict[field.name] = self.__proto_obj_to_model(
-                    request_dict[field.name], item_model_type
+            elif field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
+                if field_name not in schema_properties:
+                    logger.error(f"Field {field_name} not found in model schema")
+                    continue
+                model_field = model_cls.__dict__["__fields__"][to_snake(field_name)]
+                # either field type or one of subfields in case of union should match message type
+
+                types = [model_field.type_]
+                if model_field.sub_fields is not None:
+                    types += [subtype.type_ for subtype in model_field.sub_fields]
+                try:
+                    modapp_path = next(
+                        modapp_path
+                        for (modapp_path, proto_type) in self.protos.items()
+                        if field.message_type.full_name == proto_type.DESCRIPTOR.full_name
+                    )
+                except StopIteration:
+                    logger.error(
+                        f"Cannot resolve field type '{field.message_type.full_name}' in"
+                        " model"
+                    )
+                    continue
+
+                try:
+                    item_model_type = next(
+                        t
+                        for t in types
+                        if inspect.isclass(t)
+                        and issubclass(t, BaseModel)
+                        and t.__modapp_path__ == modapp_path
+                    )
+                except StopIteration:
+                    logger.error(f"Cannot find modapp type '{modapp_path}' in")
+                    continue
+
+                request_dict[field_name] = self.__proto_obj_to_model(
+                    request_dict[field_name], item_model_type
                 )
 
         request_dict.update({field: 0 for field in fields_to_update})
-
-        # convert one_of fields to union in model
-        # one_of_fields = proto_obj.DESCRIPTOR.oneofs_by_name.keys()
-        # for one_of_field in one_of_fields:
-        for one_of_field in proto_obj.DESCRIPTOR.oneofs_by_name.values():
-            for subfield in one_of_field.fields:
-                if subfield.name in request_dict:
-                    request_dict[one_of_field.name] = request_dict[subfield.name]
-                    del request_dict[subfield.name]
 
         # request is not neccessary valid utf-8 string, handle errors
         logger.trace(str(request_dict).encode("utf-8", errors="replace"))
