@@ -407,8 +407,6 @@ class ProtobufConverter(BaseConverter):
 
         request_dict.update({field: 0 for field in fields_to_update})
 
-        # request is not neccessary valid utf-8 string, handle errors
-        logger.trace(str(request_dict).encode("utf-8", errors="replace"))
         try:
             return model_cls(**request_dict)
         except ValidationError as error:

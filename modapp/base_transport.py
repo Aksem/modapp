@@ -64,6 +64,7 @@ class BaseTransport(ABC):
             )
             raise error
 
+        logger.debug(f"Request to {route.path}: {request_data}")
         # here or on initialization?
         # updating is needed if response type has submodels
         route.reply_type.update_forward_refs()
@@ -73,11 +74,12 @@ class BaseTransport(ABC):
 
         try:
             handler = route.get_request_handler(request_data, meta, stack)
-            reply = handler()
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
+                reply = handler()
                 # modapp validates request handlers, trust it
                 assert isinstance(reply, BaseModel)
                 proto_reply = self.converter.model_to_raw(reply)
+                logger.debug(f"Response on {route.path}: {reply}")
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
                 handler = route.get_request_handler(request_data, meta, stack)
@@ -87,10 +89,12 @@ class BaseTransport(ABC):
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:
-                    async for reply in handler():
+                    response_iterator = handler()
+                    logger.debug(f"Response stream on {route.path} ready")
+                    async for reply in response_iterator:
                         proto_reply = converter.model_to_raw(reply)
                         yield proto_reply
-                        logger.trace("Response stream message:")
+                        logger.trace(f"Response stream message on {route.path}: {reply}")
                 try:
                     loop = asyncio.get_event_loop()
                 except RuntimeError:

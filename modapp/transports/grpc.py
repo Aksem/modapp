@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 from grpclib.const import Handler, Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
-from grpclib.events import RecvRequest, listen
+# from grpclib.events import RecvRequest, listen
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
@@ -28,8 +28,8 @@ class GrpcTransportConfig(BaseTransportConfig):
 DEFAULT_CONFIG: GrpcTransportConfig = {"address": "127.0.0.1", "port": 50051}
 
 
-async def recv_request(event: RecvRequest):
-    logger.trace(f"Income request: {event.method_name}")
+# async def recv_request(event: RecvRequest):
+#     logger.trace(f"Income request: {event.method_name}")
 
 
 class RawCodec(CodecBase):
@@ -119,7 +119,7 @@ class GrpcTransport(BaseTransport):
         handler_storage = HandlerStorage(routes, self.converter, self.got_request)
         self.server = Server([handler_storage], codec=RawCodec())
 
-        listen(self.server, RecvRequest, recv_request)
+        # listen(self.server, RecvRequest, recv_request)
 
         try:
             address: str = self.config.get("address", DEFAULT_CONFIG["address"])
