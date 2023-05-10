@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import traceback
 from abc import ABC
 from typing import (
@@ -48,7 +47,7 @@ class BaseTransport(ABC):
         raise NotImplementedError()
 
     # TODO: AsyncIterator in raw_data type
-    def got_request(
+    async def got_request(
         self,
         route: Route,
         raw_data: bytes,
@@ -82,8 +81,6 @@ class BaseTransport(ABC):
                 logger.debug(f"Response on {route.path}: {reply}")
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
-                handler = route.get_request_handler(request_data, meta, stack)
-
                 async def handle_request(
                     handler: Callable,
                     converter: BaseConverter,
@@ -95,11 +92,7 @@ class BaseTransport(ABC):
                         proto_reply = converter.model_to_raw(reply)
                         yield proto_reply
                         logger.trace(f"Response stream message on {route.path}: {reply}")
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
+                    logger.debug(f"Response stream on {route.path} finished")
 
                 return handle_request(handler, self.converter, route)
         except (NotFoundError, InvalidArgumentError, ServerError) as error:
@@ -111,12 +104,8 @@ class BaseTransport(ABC):
             server_error = ServerError("Internal server error")
             raise server_error
         finally:
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            asyncio.run_coroutine_threadsafe(stack.aclose(), loop)
+            # logger.debug("Close request stack")
+            await stack.aclose()
 
 
 __all__ = ["BaseTransportConfig", "BaseTransport"]

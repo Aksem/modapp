@@ -61,7 +61,7 @@ class SocketioTransport(BaseTransport):
             # TODO: get and validate meta data
 
             try:
-                reply = self.got_request(route, data, meta)
+                reply = await self.got_request(route, data, meta)
             except (
                 NotFoundError,
                 InvalidArgumentError,

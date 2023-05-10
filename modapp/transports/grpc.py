@@ -77,15 +77,14 @@ class HandlerStorage:
                     assert request is not None
 
                     # TODO: pass meta
+                    response = await self.request_callback(route, request, {})
                     if (
                         route.proto_cardinality == Cardinality.UNARY_STREAM
                         or route.proto_cardinality == Cardinality.STREAM_STREAM
                     ):
-                        response = self.request_callback(route, request, {})
                         async for message in response:
                             await stream.send_message(message)
                     else:
-                        response = self.request_callback(route, request, {})
                         await stream.send_message(response)
                 except BaseModappError as modapp_error:
                     raise modapp_error_to_grpc(modapp_error, self.converter)
