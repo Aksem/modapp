@@ -243,10 +243,12 @@ class ProtobufConverter(BaseConverter):
     def __proto_obj_to_model(
         self, proto_obj: ProtoType, model_cls: Type[BaseModel]
     ) -> BaseModel:
-        if isinstance(proto_obj, list):
-            print(1)
         request_dict = {
-            field[0].name: field[1] for field in type(proto_obj).ListFields(proto_obj)
+            field.name: proto_obj.__getattribute__(field.name)
+            for field in proto_obj.DESCRIPTOR.fields
+            # take only filled fields into account, default values for optional fields expected
+            # to be in schema as well
+            if not field.has_presence or proto_obj.HasField(field.name)
         }
 
         def update_type_refs(
@@ -272,41 +274,6 @@ class ProtobufConverter(BaseConverter):
         request_schema = model_cls.schema()
         schema_properties = get_schema_properties(request_schema)
 
-        # protobuff ListFields method doesn't return empty string fields, but they are not
-        # neccessary required
-        # request_dict.update({
-        #     field.name: ''
-        #     for field in proto_request.DESCRIPTOR.fields
-        #     if (field.name not in request_dict
-        #         and request_schema['properties'][field.name].get('type', None) == 'string')
-        # })
-
-        # protobuff ListFields method doesn't return boolean fields if they have value False)
-        request_dict.update(
-            {
-                field.name: False
-                for field in proto_obj.DESCRIPTOR.fields
-                if (
-                    field.name not in request_dict
-                    and field.name in schema_properties
-                    and schema_properties[field.name].get("type", None) == "boolean"
-                )
-            }
-        )
-
-        # it also doesn't return list fields if they are empty
-        request_dict.update(
-            {
-                field.name: []
-                for field in proto_obj.DESCRIPTOR.fields
-                if (
-                    field.name not in request_dict
-                    and field.name in schema_properties
-                    and schema_properties[field.name].get("type", None) == "array"
-                )
-            }
-        )
-
         # convert one_of fields to union in model
         for one_of_field in proto_obj.DESCRIPTOR.oneofs_by_name.values():
             for subfield in one_of_field.fields:
@@ -314,35 +281,17 @@ class ProtobufConverter(BaseConverter):
                     request_dict[one_of_field.name] = request_dict[subfield.name]
                     del request_dict[subfield.name]
 
-        # protobuff ListFields method doesn't return enum fields if they have value 0)
-        fields_to_update: List[str] = []
-        for field, field_value in type(proto_obj).ListFields(proto_obj):
+        # TODO: try to process only fields from request_dict
+        for field in proto_obj.DESCRIPTOR.fields:
+            if field.has_presence and not proto_obj.HasField(field.name):
+                continue
             # first resolve one_of: get its name
             if field.containing_oneof is not None:
                 field_name = field.containing_oneof.name
             else:
                 field_name = field.name
 
-            if (
-                field_name not in request_dict
-                and field_name in schema_properties
-                and schema_properties[field_name].get("$ref", None) is not None
-            ):
-                definition_name = (
-                    schema_properties[field_name].get("$ref", "").split("/")[-1]
-                )
-                try:
-                    # can ref be imported? TODO: check
-                    definition = request_schema["definitions"][definition_name]
-                except KeyError:
-                    logger.warning(
-                        f"Field '{field_name}' has reference to definition, but"
-                        " definition was not found"
-                    )
-                    continue
-
-                if definition["type"] == "integer" and "enum" in definition:
-                    fields_to_update.append(field_name)
+            field_value = request_dict[field_name]
 
             # arrays need to be converted explicitly
             if (
@@ -380,7 +329,8 @@ class ProtobufConverter(BaseConverter):
                     modapp_path = next(
                         modapp_path
                         for (modapp_path, proto_type) in self.protos.items()
-                        if field.message_type.full_name == proto_type.DESCRIPTOR.full_name
+                        if field.message_type.full_name
+                        == proto_type.DESCRIPTOR.full_name
                     )
                 except StopIteration:
                     logger.error(
@@ -404,8 +354,6 @@ class ProtobufConverter(BaseConverter):
                 request_dict[field_name] = self.__proto_obj_to_model(
                     request_dict[field_name], item_model_type
                 )
-
-        request_dict.update({field: 0 for field in fields_to_update})
 
         try:
             return model_cls(**request_dict)
