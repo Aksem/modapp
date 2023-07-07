@@ -8,17 +8,17 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-loguru = "^0.6.0"
-orjson = "^3.7.9"
-pydantic = "^1.9.1"
-uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'", optional = true }
-grpclib = { version = "^0.4.3", optional = true }
-googleapis-common-protos = { version = "^1.56.4", optional = true }
-aiohttp = { version = "^3.8.1", optional = true }
-python-socketio = { version = "^5.7.1", optional = true }
+loguru = "^0.7.0"
+pydantic = "^2.0"
+uvloop = { version = "^0.17.0", markers = "sys_platform != 'win32'", optional = true }
+winloop = { version = "^0.0.6", markers = "sys_platform == 'win32'", optional = true }
+grpclib = { version = "^0.4.5", optional = true }
+googleapis-common-protos = { version = "^1.59.1", optional = true }
+aiohttp = { version = "^3.8.4", optional = true }
+python-socketio = { version = "^5.8.0", optional = true }
 
 [tool.poetry.extras]
-uvloop = ["uvloop"]
+uvloop = ["uvloop", "winloop"]
 grpc = ["grpclib", "googleapis-common-protos"]
 socketio = ["aiohttp", "python-socketio"]
 
@@ -40,6 +40,7 @@ pytest-mock = "^3.10.0"
 pytest-memray = "^1.4.0"
 pyinstrument = "^4.4.0"
 pytest-benchmark = "^4.0.0"
+grpcio-tools = "^1.56.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0b2"]
@@ -47,7 +48,7 @@ build-backend = "poetry.core.masonry.api"
 
 
 [tool.black]
-target-version = ['py38', 'py39', 'py310']
+target-version = ['py38', 'py39', 'py310', 'py311']
 preview = true
 exclude = '''
 (

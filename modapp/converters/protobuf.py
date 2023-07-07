@@ -1,9 +1,9 @@
 from __future__ import annotations
 from datetime import timezone
-from typing import List, TYPE_CHECKING, Dict, Optional, Any, Type, Set
+from typing import TYPE_CHECKING, Any, Type
 import inspect
 
-import orjson
+# import orjson
 import google.protobuf.descriptor as protobuf_descriptor
 from loguru import logger
 from pydantic import ValidationError
@@ -63,27 +63,29 @@ def model_field_type_matches_proto_field(
     """
 
 
-def get_schema_properties(model_schema: Dict[str, Any]) -> Dict[str, Any]:
-    model_name = model_schema.get("$ref", "").split("/")[-1]
+def get_schema_properties(model_schema: dict[str, Any]) -> dict[str, Any]:
     if "properties" in model_schema:
         return model_schema["properties"]
-    elif (
-        "$ref" in model_schema
-        and "definitions" in model_schema
-        and model_name in model_schema["definitions"]
-        and "properties" in model_schema["definitions"][model_name]
-    ):
-        # 'submodels'(models of fields) have $ref in schema and definitions
-        return model_schema["definitions"][model_name]["properties"]
-    else:
-        raise Exception(f"No schema found for {model_name}")
+    elif 'allOf' in model_schema:
+        model_name = model_schema['allOf'][0].get("$ref", "").split("/")[-1]
+        
+        if (
+            "$defs" in model_schema
+            and model_name in model_schema["$defs"]
+            and "properties" in model_schema["$defs"][model_name]
+        ):
+            # 'submodels'(models of fields) have $ref in schema and definitions
+            return model_schema["$defs"][model_name]["properties"]
+        else:
+            raise Exception(f"No schema found for {model_name}")
+    raise Exception(f"No schema found")
 
 
 class ProtobufConverter(BaseConverter):
-    def __init__(self, protos: Dict[str, ProtoType]) -> None:
+    def __init__(self, protos: dict[str, ProtoType]) -> None:
         super().__init__()
         self.protos = protos
-        self.resolved_protos: Dict[Type[BaseModel], ProtoType] = {}
+        self.resolved_protos: dict[Type[BaseModel], ProtoType] = {}
 
     def raw_to_model(self, raw: bytes, model_cls: Type[BaseModel]) -> BaseModel:
         try:
@@ -103,16 +105,17 @@ class ProtobufConverter(BaseConverter):
         #     logger.error(f"Route handler '{route.path}' doesn't return value")
         #     raise ServerError("Internal error")
 
-        json_reply = orjson.loads(model.json(by_alias=True))
+        # json_reply = orjson.loads(model.model_dump_json(by_alias=True))
+        json_reply = model.model_dump(by_alias=True)
 
         def fix_json(model, json) -> None:
             # model is field with reference, it can be also for example Enum
             if not isinstance(model, BaseModel):
                 return
 
-            model.__class__.update_forward_refs()
+            # model.__class__.update_forward_refs()
             # TODO: do we need the whole schema or field iterator would be enough?
-            model_schema = model.__class__.schema()
+            model_schema = model.__class__.model_json_schema()
             schema_properties = get_schema_properties(model_schema)
 
             # TODO: unify with code below
@@ -251,27 +254,27 @@ class ProtobufConverter(BaseConverter):
             if not field.has_presence or proto_obj.HasField(field.name)
         }
 
-        def update_type_refs(
-            model_type: Type[BaseModel], updated_type_refs: Set[str]
-        ) -> None:
-            if model_type.__name__ in updated_type_refs:
-                return
+        # def update_type_refs(
+        #     model_type: Type[BaseModel], updated_type_refs: Set[str]
+        # ) -> None:
+        #     if model_type.__name__ in updated_type_refs:
+        #         return
 
-            model_type.update_forward_refs()
-            updated_type_refs.add(model_type.__name__)
-            for field in model_type.__fields__.items():
-                # if field type is union, then type_ is empty and sub_fields need to be processed
-                if field[1].sub_fields is not None:
-                    for sub_field in field[1].sub_fields:
-                        if issubclass(sub_field.type_, BaseModel):
-                            update_type_refs(sub_field.type_, updated_type_refs)
-                elif issubclass(field[1].type_, BaseModel):
-                    update_type_refs(field[1].type_, updated_type_refs)
+        #     model_type.update_forward_refs()
+        #     updated_type_refs.add(model_type.__name__)
+        #     for field in model_type.model_fields.items():
+        #         # if field type is union, then type_ is empty and sub_fields need to be processed
+        #         if field[1].sub_fields is not None:
+        #             for sub_field in field[1].sub_fields:
+        #                 if issubclass(sub_field.type_, BaseModel):
+        #                     update_type_refs(sub_field.type_, updated_type_refs)
+        #         elif issubclass(field[1].type_, BaseModel):
+        #             update_type_refs(field[1].type_, updated_type_refs)
 
         # updating forward refs is required to resolve all ForwardRef before getting schema
-        updated_type_refs: Set[str] = set()
-        update_type_refs(model_cls, updated_type_refs)
-        request_schema = model_cls.schema()
+        # updated_type_refs: Set[str] = set()
+        # update_type_refs(model_cls, updated_type_refs)
+        request_schema = model_cls.model_json_schema()
         schema_properties = get_schema_properties(request_schema)
 
         # convert one_of fields to union in model
@@ -302,8 +305,11 @@ class ProtobufConverter(BaseConverter):
                     "$ref", None
                 )
                 if item_type_ref_path is not None:
+                    item_model_type = model_cls.__dict__["model_fields"][
+                        to_snake(field_name)
+                    ].rebuild_annotation()
                     # arrays items of complex types need to be converted explicitly
-                    item_model_type = model_cls.__dict__["__fields__"][
+                    item_model_type = model_cls.__dict__["model_fields"][
                         to_snake(field_name)
                     ].outer_type_.__args__[0]
                     request_dict[field_name] = [
@@ -319,12 +325,12 @@ class ProtobufConverter(BaseConverter):
                 if field_name not in schema_properties:
                     logger.error(f"Field {field_name} not found in model schema")
                     continue
-                model_field = model_cls.__dict__["__fields__"][to_snake(field_name)]
+                model_field = model_cls.__dict__["model_fields"][to_snake(field_name)]
                 # either field type or one of subfields in case of union should match message type
 
-                types = [model_field.type_]
-                if model_field.sub_fields is not None:
-                    types += [subtype.type_ for subtype in model_field.sub_fields]
+                types = [model_field.annotation]
+                # if isinstance(model_field.annotation, Union): # model_field.sub_fields is not None:
+                #     types += [subtype.type_ for subtype in model_field.sub_fields]
                 try:
                     modapp_path = next(
                         modapp_path

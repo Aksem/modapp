@@ -15,16 +15,24 @@ if TYPE_CHECKING:
     from modapp.dependencies import DependencyOverrides
 
 
-# uvloop doesn't support Windows yet
-if platform.system() != "Windows":
-    # uvloop is optional dependency
-    try:
+def run_in_better_loop(coroutine):
+    import sys
+    # uvloop doesn't support Windows yet
+    if platform.system() != "Windows":
         import uvloop
 
-        # install uvloop event loop to get better performance of event loop
-        uvloop.install()
-    except ImportError:
-        ...
+        loop_lib = uvloop
+    else:
+        import winloop
+
+        loop_lib = winloop
+
+        if sys.version_info >= (3, 11):
+            with asyncio.Runner(loop_factory=loop_lib.new_event_loop) as runner:
+                runner.run(coroutine())
+        else:
+            loop_lib.install()
+            asyncio.run(coroutine())
 
 
 class Modapp:
@@ -56,7 +64,9 @@ class Modapp:
             self.stop()
 
     async def run_async(self) -> None:
-        await asyncio.gather(*[transport.start(self.router.routes) for transport in self.transports])
+        await asyncio.gather(
+            *[transport.start(self.router.routes) for transport in self.transports]
+        )
         logger.info("Server has started")
 
     def stop(self) -> None:
