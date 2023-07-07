@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modapp"
-version = "0.2.6"
+version = "0.2.7"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
@@ -8,7 +8,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-loguru = "^0.6.0"
+loguru = "^0.7.0"
 orjson = "^3.7.9"
 pydantic = "^1.9.1"
 uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'", optional = true }
