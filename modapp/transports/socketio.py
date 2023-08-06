@@ -1,6 +1,5 @@
 from random import seed
-from typing import Dict, Optional, Union, AsyncIterator
-
+from typing import AsyncIterator, Dict, Optional, Union
 
 import socketio
 from aiohttp import web

@@ -61,18 +61,21 @@ def to_camel(string: str) -> str:
     splitted = string.split("_")
     return splitted[0] + "".join(word.capitalize() for word in splitted[1:])
 
+
 # TODO: move
-pattern = re.compile(r'(?<!^)(?=[A-Z])')
+pattern = re.compile(r"(?<!^)(?=[A-Z])")
+
+
 def to_snake(camelStr: str) -> str:
-    return pattern.sub('_', camelStr).lower()
+    return pattern.sub("_", camelStr).lower()
 
 
 class BaseModel(PBaseModel):
-    __modapp_path__: str = ''
+    __modapp_path__: str = ""
 
     model_config = {
-        'populate_by_name': True,
-        'alias_generator': to_camel,
+        "populate_by_name": True,
+        "alias_generator": to_camel,
     }
 
 
@@ -120,19 +123,19 @@ __all__ = [
     "PastDate",
     "FutureDate",
     # networks
-    'AnyUrl',
-    'AnyHttpUrl',
-    'FileUrl',
-    'HttpUrl',
-    'EmailStr',
-    'NameEmail',
-    'IPvAnyAddress',
-    'IPvAnyInterface',
-    'IPvAnyNetwork',
-    'PostgresDsn',
-    'CockroachDsn',
-    'AmqpDsn',
-    'RedisDsn',
-    'MongoDsn',
-    'KafkaDsn',
+    "AnyUrl",
+    "AnyHttpUrl",
+    "FileUrl",
+    "HttpUrl",
+    "EmailStr",
+    "NameEmail",
+    "IPvAnyAddress",
+    "IPvAnyInterface",
+    "IPvAnyNetwork",
+    "PostgresDsn",
+    "CockroachDsn",
+    "AmqpDsn",
+    "RedisDsn",
+    "MongoDsn",
+    "KafkaDsn",
 ]

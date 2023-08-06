@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Type, AsyncIterator, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
-from modapp.models import BaseModel
 from modapp.base_converter import BaseConverter
-
+from modapp.models import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 

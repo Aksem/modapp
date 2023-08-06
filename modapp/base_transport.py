@@ -2,24 +2,24 @@ from __future__ import annotations
 
 import traceback
 from abc import ABC
+from contextlib import AsyncExitStack
 from typing import (
     TYPE_CHECKING,
+    AsyncIterator,
     Callable,
+    Dict,
     Optional,
     TypedDict,
     Union,
-    AsyncIterator,
-    Dict
 )
-from contextlib import AsyncExitStack
 
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.converter_utils import get_default_converter
+from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.models import BaseModel
-from modapp.routing import Route, Cardinality
+from modapp.routing import Cardinality, Route
 
 if TYPE_CHECKING:
     from .routing import RoutesDict
@@ -81,6 +81,7 @@ class BaseTransport(ABC):
                 logger.debug(f"Response on {route.path}: {reply}")
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
+
                 async def handle_request(
                     handler: Callable,
                     converter: BaseConverter,
@@ -91,7 +92,9 @@ class BaseTransport(ABC):
                     async for reply in response_iterator:
                         proto_reply = converter.model_to_raw(reply)
                         yield proto_reply
-                        logger.trace(f"Response stream message on {route.path}: {reply}")
+                        logger.trace(
+                            f"Response stream message on {route.path}: {reply}"
+                        )
                     logger.debug(f"Response stream on {route.path} finished")
 
                 return handle_request(handler, self.converter, route)

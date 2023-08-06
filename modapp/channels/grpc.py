@@ -1,15 +1,19 @@
-from typing import AsyncIterator, Optional, Dict, Any, Type, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
 from grpclib import client as grpclib_client
+from grpclib.const import Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
-from grpclib.const import Status as GrpcStatus
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import BaseModappError, NotFoundError, InvalidArgumentError, ServerError
 from modapp.client import BaseChannel
+from modapp.errors import (
+    BaseModappError,
+    InvalidArgumentError,
+    NotFoundError,
+    ServerError,
+)
 from modapp.models import BaseModel
-
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -95,11 +99,11 @@ class GrpcChannel(BaseChannel):
         except GRPCError as grpc_error:
             raise self.__grpc_error_to_modapp(grpc_error)
 
-    async def send_stream_unary(self):
+    async def send_stream_unary(self) -> None:
         # TODO
         raise NotImplementedError()
 
-    async def send_stream_stream(self):
+    async def send_stream_stream(self) -> None:
         # TODO
         raise NotImplementedError()
 

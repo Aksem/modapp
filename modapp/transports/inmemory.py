@@ -1,12 +1,12 @@
-import inspect
 import concurrent.futures
+import inspect
 from typing import AsyncIterator, Optional
 
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import ServerError, BaseModappError
 from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.errors import BaseModappError, ServerError
 from modapp.routing import RoutesDict
 
 
@@ -32,7 +32,9 @@ class InMemoryTransport(BaseTransport):
     async def stop(self) -> None:
         self.routes = None
 
-    async def handle_request(self, route_path: str, request_data: bytes) -> bytes | AsyncIterator[bytes]:
+    async def handle_request(
+        self, route_path: str, request_data: bytes
+    ) -> bytes | AsyncIterator[bytes]:
         if self.routes is None:
             raise Exception("Server need to be started first")  # TODO
         try:

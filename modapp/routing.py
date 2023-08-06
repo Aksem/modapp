@@ -5,16 +5,16 @@ from collections import namedtuple
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, contextmanager
 from enum import Enum, unique
-from inspect import signature, isgeneratorfunction
-from typing import TYPE_CHECKING, Union, Dict, NamedTuple
+from inspect import isgeneratorfunction, signature
+from typing import TYPE_CHECKING, Dict, NamedTuple, Union
 
 from loguru import logger
 from typing_extensions import Protocol
 
 from modapp.dependencies import Dependant, DependencyOverrides
-from modapp.models import to_camel, BaseModel
+from modapp.models import BaseModel, to_camel
 
-from .params import Meta, Depends
+from .params import Depends, Meta
 
 if TYPE_CHECKING:
     from typing import Any, Callable, List, Optional, Type

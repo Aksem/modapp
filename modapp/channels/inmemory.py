@@ -1,12 +1,12 @@
-from typing import AsyncIterator, Optional, Dict, Any, Type, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
 from modapp.base_converter import BaseConverter
 from modapp.client import BaseChannel
 from modapp.models import BaseModel
 from modapp.transports.inmemory import InMemoryTransport
 
+T = TypeVar("T", bound=BaseModel)
 
-T = TypeVar('T', bound=BaseModel)
 
 class InMemoryChannel(BaseChannel):
     def __init__(self, converter: BaseConverter, transport: InMemoryTransport) -> None:
@@ -32,11 +32,13 @@ class InMemoryChannel(BaseChannel):
         meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:
         raw_data = self.converter.model_to_raw(request_data)
-        async for raw_message in await self.transport.handle_request(route_path, raw_data):
+        async for raw_message in await self.transport.handle_request(
+            route_path, raw_data
+        ):
             yield self.converter.raw_to_model(raw_message, reply_cls)
 
-    async def send_stream_unary(self):
+    async def send_stream_unary(self) -> None:
         raise NotImplementedError()
 
-    async def send_stream_stream(self):
+    async def send_stream_stream(self) -> None:
         raise NotImplementedError()

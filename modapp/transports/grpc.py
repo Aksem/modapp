@@ -3,9 +3,9 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING
 
-from grpclib.const import Handler, Status as GrpcStatus
+from grpclib.const import Handler
+from grpclib.const import Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
-
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
@@ -15,9 +15,9 @@ from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport, BaseTransportConfig
 from modapp.errors import (
     BaseModappError,
-    ServerError,
     InvalidArgumentError,
     NotFoundError,
+    ServerError,
 )
 from modapp.routing import Cardinality
 

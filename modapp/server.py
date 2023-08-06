@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import platform
 from typing import TYPE_CHECKING
@@ -11,12 +12,13 @@ if TYPE_CHECKING:
     from typing import Callable
 
     from modapp.base_transport import BaseTransport, BaseTransportConfig
-    from modapp.types import DecoratedCallable
     from modapp.dependencies import DependencyOverrides
+    from modapp.types import DecoratedCallable
 
 
 def run_in_better_loop(coroutine):
     import sys
+
     # uvloop doesn't support Windows yet
     if platform.system() != "Windows":
         import uvloop

@@ -4,12 +4,14 @@ from typing import Any, Dict
 from loguru import logger
 from pydantic import ValidationError
 
-from .routing import Route
 from .errors import ServerError
 from .models import BaseModel
+from .routing import Route
 
 
-async def run_request_handler(route: Route, handler_arguments: Dict[str, Any]) -> BaseModel:
+async def run_request_handler(
+    route: Route, handler_arguments: Dict[str, Any]
+) -> BaseModel:
     try:
         if iscoroutine(route.handler):
             reply = await route.handler(**handler_arguments)
