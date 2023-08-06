@@ -8,7 +8,7 @@ from loguru import logger
 from modapp.routing import APIRouter, RouteMeta
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Optional, Set
+    from typing import Callable
 
     from modapp.base_transport import BaseTransport, BaseTransportConfig
     from modapp.types import DecoratedCallable
@@ -38,12 +38,12 @@ def run_in_better_loop(coroutine):
 class Modapp:
     def __init__(
         self,
-        transports: Set[BaseTransport],
-        config: Optional[Dict[str, BaseTransportConfig]] = None,
-        dependency_overrides: Optional[DependencyOverrides] = None,
+        transports: set[BaseTransport],
+        config: dict[str, BaseTransportConfig] | None = None,
+        dependency_overrides: DependencyOverrides | None = None,
     ) -> None:
         self.transports = transports
-        self.config: Dict[str, BaseTransportConfig] = {}
+        self.config: dict[str, BaseTransportConfig] = {}
         if config is not None:
             self.config = config
         self.dependency_overrides = dependency_overrides

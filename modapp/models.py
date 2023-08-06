@@ -1,4 +1,5 @@
 import re
+from typing import TypeVar
 
 from pydantic import BaseModel as PBaseModel
 from pydantic import ValidationError, validator
@@ -75,8 +76,12 @@ class BaseModel(PBaseModel):
     }
 
 
+ModelType = TypeVar("ModelType", bound=BaseModel)
+
+
 __all__ = [
     "BaseModel",
+    "ModelType",
     "validator",
     "to_camel",
     "ValidationError",

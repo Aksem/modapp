@@ -1,23 +1,28 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING
 
 from grpclib.const import Handler, Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
-# from grpclib.events import RecvRequest, listen
+
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
 from typing_extensions import NotRequired
 
-from ..base_converter import BaseConverter
-from ..base_transport import BaseTransport, BaseTransportConfig
-from ..errors import BaseModappError, ServerError, InvalidArgumentError, NotFoundError
-from ..routing import Cardinality
+from modapp.base_converter import BaseConverter
+from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.errors import (
+    BaseModappError,
+    ServerError,
+    InvalidArgumentError,
+    NotFoundError,
+)
+from modapp.routing import Cardinality
 
 if TYPE_CHECKING:
-    from ..routing import Route, RoutesDict
+    from modapp.routing import Route, RoutesDict
 
 
 class GrpcTransportConfig(BaseTransportConfig):
@@ -68,7 +73,7 @@ class HandlerStorage:
         self.request_callback = request_callback
 
     def __mapping__(self):
-        result: Dict[str, Handler] = {}
+        result: dict[str, Handler] = {}
         for route_path, route in self.routes.items():
 
             async def handle(stream: Stream, route: Route):
@@ -109,10 +114,10 @@ class GrpcTransport(BaseTransport):
     CONFIG_KEY = "grpc"
 
     def __init__(
-        self, config: GrpcTransportConfig, converter: Optional[BaseConverter] = None
+        self, config: GrpcTransportConfig, converter: BaseConverter | None = None
     ) -> None:
         super().__init__(config, converter)
-        self.server: Optional[Server] = None
+        self.server: Server | None = None
 
     async def start(self, routes: RoutesDict) -> None:
         handler_storage = HandlerStorage(routes, self.converter, self.got_request)
