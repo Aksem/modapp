@@ -40,7 +40,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install --verbose
+          poetry install --all-extras --verbose
         shell: bash
 
       - name: Lint
