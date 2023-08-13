@@ -20,63 +20,36 @@ if TYPE_CHECKING:
     from modapp.errors import BaseModappError
 
 
+PRIMITIVE_TYPE_PROTO_TO_PY_MAP = {
+    protobuf_descriptor.FieldDescriptor.TYPE_DOUBLE: float,
+    protobuf_descriptor.FieldDescriptor.TYPE_FLOAT: float,
+    protobuf_descriptor.FieldDescriptor.TYPE_INT64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_UINT64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_INT32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_FIXED64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_FIXED32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_BOOL: bool,
+    protobuf_descriptor.FieldDescriptor.TYPE_STRING: str,
+    # TYPE_GROUP          = 10
+    # TYPE_MESSAGE        = 11
+    protobuf_descriptor.FieldDescriptor.TYPE_BYTES: bytes,
+    protobuf_descriptor.FieldDescriptor.TYPE_UINT32: int,
+    # TODO
+    # protobuf_descriptor.FieldDescriptor.TYPE_ENUM:
+    protobuf_descriptor.FieldDescriptor.TYPE_SFIXED32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SFIXED64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SINT32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SINT64: int,
+}
+
+
 def model_field_type_matches_proto_field(
-    model: BaseModel, field: str, proto_field: protobuf_descriptor.FieldDescriptor
+    field_value: Any, proto_field: protobuf_descriptor.FieldDescriptor
 ) -> bool:
-    field_value = model.__dict__[field]
-    # primitive types
-    # TODO: other types
-    return (
-        # string
-        (
-            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_STRING
-            and isinstance(field_value, str)
-        )
-        # messages
-        or (
-            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
-            and proto_field.message_type.full_name == field_value.__modapp_path__
-        )
-    )
-
-    """
-    TYPE_DOUBLE         = 1
-  TYPE_FLOAT          = 2
-  TYPE_INT64          = 3
-  TYPE_UINT64         = 4
-  TYPE_INT32          = 5
-  TYPE_FIXED64        = 6
-  TYPE_FIXED32        = 7
-  TYPE_BOOL           = 8
-  TYPE_STRING         = 9
-  TYPE_GROUP          = 10
-  TYPE_MESSAGE        = 11
-  TYPE_BYTES          = 12
-  TYPE_UINT32         = 13
-  TYPE_ENUM           = 14
-  TYPE_SFIXED32       = 15
-  TYPE_SFIXED64       = 16
-  TYPE_SINT32         = 17
-  TYPE_SINT64         = 18
-    """
-
-
-def get_schema_properties(model_schema: dict[str, Any]) -> dict[str, Any]:
-    if "properties" in model_schema:
-        return model_schema["properties"]
-    elif "allOf" in model_schema:
-        model_name = model_schema["allOf"][0].get("$ref", "").split("/")[-1]
-
-        if (
-            "$defs" in model_schema
-            and model_name in model_schema["$defs"]
-            and "properties" in model_schema["$defs"][model_name]
-        ):
-            # 'submodels'(models of fields) have $ref in schema and definitions
-            return model_schema["$defs"][model_name]["properties"]
-        else:
-            raise Exception(f"No schema found for {model_name}")
-    raise Exception("No schema found")
+    if proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
+        return proto_field.message_type.full_name == field_value.__modapp_path__
+    # TODO: what if few proto type map to the same python type? like oneof { int32, int64 }
+    return isinstance(field_value, PRIMITIVE_TYPE_PROTO_TO_PY_MAP[proto_field.type])
 
 
 class ProtobufConverter(BaseConverter):
@@ -105,16 +78,34 @@ class ProtobufConverter(BaseConverter):
         )
 
     def model_to_raw(self, model: BaseModel) -> bytes:
-        # if reply is None:
-        #     logger.error(f"Route handler '{route.path}' doesn't return value")
-        #     raise ServerError("Internal error")
         model_dict = self.validator.model_to_dict(model=model)
         try:
             proto_cls = self.protos[model.__modapp_path__]
         except KeyError:
             raise ServerError(f"Proto for {model.__modapp_path__} not found")
 
+        # serialize 'oneof' fields
+        for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
+            if oneof_name in model_dict:
+                try:
+                    proto_field_name = next(
+                        field.name
+                        for field in oneof_descriptor.fields
+                        if model_field_type_matches_proto_field(
+                            field_value=model_dict[oneof_name], proto_field=field
+                        )
+                    )
+                except StopIteration:
+                    raise Exception(
+                        f"Field not found in oneof {oneof_name} in message"
+                        f" {proto_cls.DESCRIPTOR.full_name} for value"
+                        f" {model_dict[oneof_name]}"
+                    )
+                model_dict[proto_field_name] = model_dict[oneof_name]
+                del model_dict[oneof_name]
+
         return proto_cls(**model_dict).SerializeToString()
+
         # def fix_json(model, json) -> None:
         #     # model is field with reference, it can be also for example Enum
         #     if not isinstance(model, BaseModel):

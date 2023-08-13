@@ -8,6 +8,7 @@ from pathlib import Path
 
 from google.protobuf import message
 from grpc_tools import protoc
+from google.protobuf import descriptor_pool
 
 from modapp.models import ModelType
 from modapp.converters.protobuf import ProtobufConverter
@@ -15,11 +16,19 @@ from modapp.validators.pydantic import PydanticValidator
 import tests.converters.protobuf.data as data
 
 
+def new_descriptor_pool():
+    return descriptor_pool.DescriptorPool()
+
+
 def generate_proto(proto_str: str, tmp_path: Path) -> dict[str, Type[message.Message]]:
     proto_name = f"proto_{uuid.uuid4()}".replace("-", "_")
     proto_file_path = tmp_path / f"{proto_name}.proto"
     proto_file_path.write_text(proto_str)
 
+    # protos on loading are stored in a global pool(default one), and protos may not be generated
+    # and loaded twice. To avoid duplicate error, create a new descriptor pool for each test(it
+    # is expected that `generate_proto` is called only once per test)
+    descriptor_pool.Default = new_descriptor_pool
     protoc.main(
         [
             "grpc_tools.protoc",
