@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 from enum import Enum
 
 from modapp.models import BaseModel
@@ -357,3 +358,24 @@ class MessageToTestOneOfNestedMessages(BaseModel):
     level1_or_level2_msg: MessageLevel1 | MessageLevel2
 
     __modapp_path__ = "modapp.tests.converters.protobuf.one_of_nested_messages.MessageToTestOneOfNestedMessages"
+
+
+test_timestamp_proto_src = """
+syntax = "proto3";
+package modapp.tests.converters.protobuf.test_timestamp;
+
+import "google/protobuf/timestamp.proto";
+
+
+message MessageWithTimestamp {
+    google.protobuf.Timestamp created_at = 1;
+}
+"""
+
+
+class MessageWithTimestamp(BaseModel):
+    created_at: datetime
+
+    __modapp_path__ = (
+        "modapp.tests.converters.protobuf.test_timestamp.MessageWithTimestamp"
+    )

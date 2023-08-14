@@ -74,3 +74,10 @@ class TestProtobufConverterRawToModel(ProtobufConverterBaseTestSuite):
         raw_data = context.converter.model_to_raw(model=context.model_instance_ref)
 
         assert raw_data == context.proto_instance.SerializeToString()
+
+    def test_timestamp(self, tmp_path: Path) -> None:
+        context = self.arrange_timestamp_test(tmp_path)
+
+        raw_data = context.converter.model_to_raw(model=context.model_instance_ref)
+
+        assert raw_data == context.proto_instance.SerializeToString()

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 
 # from datetime import timezone
 from typing import TYPE_CHECKING, Any, Type
@@ -6,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Type
 import google.protobuf.descriptor as protobuf_descriptor
 from google.protobuf import message as protobuf_message
 
-# from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf.timestamp_pb2 import Timestamp
 from google.rpc import status_pb2
 from google.rpc.error_details_pb2 import BadRequest
 from loguru import logger
@@ -108,26 +109,19 @@ class ProtobufConverter(BaseConverter):
         for field in proto_cls.DESCRIPTOR.fields:
             if field.type == field.TYPE_ENUM:
                 model_dict[field.name] = model_dict[field.name].value
+            elif (
+                field.type == field.TYPE_MESSAGE
+                and field.message_type.full_name == "google.protobuf.Timestamp"
+            ):
+                datetime_value = model_dict[field.name]
+                model_dict[field.name] = Timestamp(
+                    seconds=int(
+                        datetime_value.replace(tzinfo=timezone.utc).timestamp()
+                    ),
+                    nanos=datetime_value.microsecond * 1000,
+                )
 
         return proto_cls(**model_dict).SerializeToString()
-
-        # def fix_json(model, json) -> None:
-        #     for field in model.__dict__:
-        #         field_camel_case = to_camel(field)
-        #         # convert datetime to google.protobuf.Timestamp instance
-        #         # in pydantic model schema datetime has type 'string' and format 'date-time'
-        #         if (
-        #             schema_properties[field_camel_case].get("format", None)
-        #             == "date-time"
-        #         ):
-        #             json[field_camel_case] = Timestamp(
-        #                 seconds=int(
-        #                     model.__dict__[field]
-        #                     .replace(tzinfo=timezone.utc)
-        #                     .timestamp()
-        #                 )
-        #                 # TODO: nanos?
-        #             )
 
     def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
@@ -205,11 +199,17 @@ class ProtobufConverter(BaseConverter):
                     for item in proto_obj.__getattribute__(field.name)
                 ]
             elif field.type == field.TYPE_MESSAGE:
-                # nested message: convert
-                model_dict[field.name] = self.__proto_obj_to_dict(
-                    proto_obj.__getattribute__(field.name)
-                )
-            # TODO: enum?
+                if field.message_type.full_name == "google.protobuf.Timestamp":
+                    timestamp_obj = proto_obj.__getattribute__(field.name)
+                    model_dict[field.name] = datetime.fromtimestamp(
+                        timestamp_obj.seconds + (timestamp_obj.nanos / 1_000_000_000),
+                        tz=timezone.utc,
+                    )
+                else:
+                    # nested message: convert
+                    model_dict[field.name] = self.__proto_obj_to_dict(
+                        proto_obj.__getattribute__(field.name)
+                    )
             else:
                 model_dict[field.name] = proto_obj.__getattribute__(field.name)
         return model_dict

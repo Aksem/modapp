@@ -1,7 +1,9 @@
 from __future__ import annotations
 import importlib
 import uuid
+import pkg_resources
 from inspect import isclass
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Generic, Type
 from pathlib import Path
@@ -9,7 +11,7 @@ from pathlib import Path
 from google.protobuf import message
 from google.protobuf.internal import enum_type_wrapper
 from grpc_tools import protoc
-from google.protobuf import descriptor_pool
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from modapp.models import ModelType
 from modapp.converters.protobuf import ProtobufConverter
@@ -17,22 +19,24 @@ from modapp.validators.pydantic import PydanticValidator
 import tests.converters.protobuf.data as data
 
 
-def new_descriptor_pool():
-    return descriptor_pool.DescriptorPool()
+# protos on loading are stored in a global pool(default one), and protos may not be generated
+# and loaded twice. To avoid duplicate error, cache generated protos
+PROTO_CACHE: dict[str, dict[str, Type[message.Message]]] = {}
 
 
 def generate_proto(proto_str: str, tmp_path: Path) -> dict[str, Type[message.Message]]:
+    if proto_str in PROTO_CACHE:
+        return PROTO_CACHE[proto_str]
+
     proto_name = f"proto_{uuid.uuid4()}".replace("-", "_")
     proto_file_path = tmp_path / f"{proto_name}.proto"
     proto_file_path.write_text(proto_str)
+    proto_include = pkg_resources.resource_filename("grpc_tools", "_proto")
 
-    # protos on loading are stored in a global pool(default one), and protos may not be generated
-    # and loaded twice. To avoid duplicate error, create a new descriptor pool for each test(it
-    # is expected that `generate_proto` is called only once per test)
-    descriptor_pool.Default = new_descriptor_pool
     protoc.main(
         [
             "grpc_tools.protoc",
+            f"-I{proto_include}",
             f"-I{tmp_path}",
             f"--python_out={tmp_path}",
             f"--pyi_out={tmp_path}",
@@ -53,6 +57,7 @@ def generate_proto(proto_str: str, tmp_path: Path) -> dict[str, Type[message.Mes
         and issubclass(item, message.Message)
         or isinstance(item, enum_type_wrapper.EnumTypeWrapper)
     }
+    PROTO_CACHE[proto_str] = proto_classes
     return proto_classes
 
 
@@ -66,7 +71,6 @@ class PydanticTestContext(Generic[ModelType]):
     model_instance_ref: ModelType
 
 
-# TODO: test special data types like path, timestamp etc
 # TODO: test errors
 # TODO: test different letter cases in keys
 # TODO: test maps
@@ -100,7 +104,7 @@ class ProtobufConverterBaseTestSuite:
             sfixed64_value=845352,
             bool_value=True,
             string_value="string in message to convert",
-            bytes_value=b"932AF390QWE"
+            bytes_value=b"932AF390QWE",
         )
         model_instance = data.MessageWithScalars(
             double_value=7821931.22,
@@ -476,4 +480,40 @@ class ProtobufConverterBaseTestSuite:
         )
 
     def test_one_of_nested_messages(self, tmp_path: Path) -> None:
+        raise NotImplementedError()
+
+    def arrange_timestamp_test(
+        self, tmp_path: Path
+    ) -> PydanticTestContext[data.MessageWithTimestamp]:
+        generated_protos = generate_proto(
+            data.test_timestamp_proto_src,
+            tmp_path,
+        )
+        converter = ProtobufConverter(
+            protos=generated_protos, validator=PydanticValidator()
+        )
+        proto_instance = generated_protos[
+            "modapp.tests.converters.protobuf.test_timestamp.MessageWithTimestamp"
+        ](created_at=Timestamp(seconds=1692002513, nanos=585000000))
+        model_instance = data.MessageWithTimestamp(
+            created_at=datetime(
+                year=2023,
+                month=8,
+                day=14,
+                hour=8,
+                minute=41,
+                second=53,
+                microsecond=585000,
+                tzinfo=timezone.utc,
+            )
+        )
+        return PydanticTestContext[data.MessageWithTimestamp](
+            converter=converter,
+            proto_instance=proto_instance,
+            generated_protos=generated_protos,
+            model_cls=data.MessageWithTimestamp,
+            model_instance_ref=model_instance,
+        )
+
+    def test_timestamp(self, tmp_path: Path) -> None:
         raise NotImplementedError()
