@@ -11,6 +11,13 @@ class TestProtobufConverterRawToModel(ProtobufConverterBaseTestSuite):
         raw_data = context.converter.model_to_raw(context.model_instance_ref)
 
         assert raw_data == context.proto_instance.SerializeToString()
+    
+    def test_enum(self, tmp_path: Path) -> None:
+        context = self.arrange_test_enum(tmp_path=tmp_path)
+
+        raw_data = context.converter.model_to_raw(context.model_instance_ref)
+
+        assert raw_data == context.proto_instance.SerializeToString()
 
     def test_defaults(self, tmp_path: Path) -> None:
         context = self.arrange_test_defaults(tmp_path=tmp_path)

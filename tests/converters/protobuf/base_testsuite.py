@@ -7,6 +7,7 @@ from typing import Generic, Type
 from pathlib import Path
 
 from google.protobuf import message
+from google.protobuf.internal import enum_type_wrapper
 from grpc_tools import protoc
 from google.protobuf import descriptor_pool
 
@@ -48,7 +49,9 @@ def generate_proto(proto_str: str, tmp_path: Path) -> dict[str, Type[message.Mes
     proto_classes = {
         item.DESCRIPTOR.full_name: item
         for item in py_module.__dict__.values()
-        if isclass(item) and issubclass(item, message.Message)
+        if isclass(item)
+        and issubclass(item, message.Message)
+        or isinstance(item, enum_type_wrapper.EnumTypeWrapper)
     }
     return proto_classes
 
@@ -66,7 +69,7 @@ class PydanticTestContext(Generic[ModelType]):
 # TODO: test special data types like path, timestamp etc
 # TODO: test errors
 # TODO: test different letter cases in keys
-# TODO: test enum
+# TODO: test maps
 # TODO: test model defaults
 # TODO: test correct result if wrong model is passed to raw_to_model
 class ProtobufConverterBaseTestSuite:
@@ -97,7 +100,7 @@ class ProtobufConverterBaseTestSuite:
             sfixed64_value=845352,
             bool_value=True,
             string_value="string in message to convert",
-            bytes_value=b"932AF390QWE",
+            bytes_value=b"932AF390QWE"
         )
         model_instance = data.MessageWithScalars(
             double_value=7821931.22,
@@ -125,6 +128,37 @@ class ProtobufConverterBaseTestSuite:
         )
 
     def test_scalars(self, tmp_path: Path) -> None:
+        raise NotImplementedError()
+
+    def arrange_test_enum(
+        self, tmp_path: Path
+    ) -> PydanticTestContext[data.MessageWithEnum]:
+        generated_protos = generate_proto(
+            data.message_with_enum_proto_src,
+            tmp_path,
+        )
+        converter = ProtobufConverter(
+            protos=generated_protos, validator=PydanticValidator()
+        )
+        proto_instance = generated_protos[
+            "modapp.tests.converters.protobuf.enum_test.MessageWithEnum"
+        ](
+            color=generated_protos[
+                "modapp.tests.converters.protobuf.enum_test.Color"
+            ].COLOR_YELLOW,
+        )
+        model_instance = data.MessageWithEnum(
+            color=data.Color.COLOR_YELLOW,
+        )
+        return PydanticTestContext[data.MessageWithEnum](
+            converter=converter,
+            proto_instance=proto_instance,
+            generated_protos=generated_protos,
+            model_cls=data.MessageWithEnum,
+            model_instance_ref=model_instance,
+        )
+
+    def test_enum(self, tmp_path: Path) -> None:
         raise NotImplementedError()
 
     def arrange_test_defaults(

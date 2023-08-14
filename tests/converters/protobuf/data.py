@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 
 from modapp.models import BaseModel
 
@@ -45,6 +46,32 @@ message MessageWithScalars {
     bool bool_value = 13;
     string string_value = 14;
     bytes bytes_value = 15;
+}
+"""
+
+
+class MessageWithEnum(BaseModel):
+    color: Color
+
+    __modapp_path__ = "modapp.tests.converters.protobuf.enum_test.MessageWithEnum"
+
+
+class Color(Enum):
+    COLOR_YELLOW = 0
+    COLOR_BLUE = 1
+
+
+message_with_enum_proto_src = """
+syntax = "proto3";
+package modapp.tests.converters.protobuf.enum_test;
+
+message MessageWithEnum {
+    Color color = 1;
+}
+
+enum Color {
+    COLOR_YELLOW = 0;
+    COLOR_BLUE = 1;
 }
 """
 

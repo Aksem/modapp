@@ -45,6 +45,15 @@ class TestProtobufConverterRawToModel(ProtobufConverterBaseTestSuite):
         assert model_instance.string_value == context.model_instance_ref.string_value
         assert model_instance.bytes_value == context.model_instance_ref.bytes_value
 
+    def test_enum(self, tmp_path: Path) -> None:
+        context = self.arrange_test_enum(tmp_path=tmp_path)
+
+        model_instance = context.converter.raw_to_model(
+            raw=context.proto_instance.SerializeToString(), model_cls=context.model_cls
+        )
+
+        assert model_instance.color == context.model_instance_ref.color
+
     def test_defaults(self, tmp_path: Path) -> None:
         context = self.arrange_test_defaults(tmp_path=tmp_path)
 

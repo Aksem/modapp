@@ -104,30 +104,14 @@ class ProtobufConverter(BaseConverter):
                 model_dict[proto_field_name] = model_dict[oneof_name]
                 del model_dict[oneof_name]
 
+        # python enum to integer
+        for field in proto_cls.DESCRIPTOR.fields:
+            if field.type == field.TYPE_ENUM:
+                model_dict[field.name] = model_dict[field.name].value
+
         return proto_cls(**model_dict).SerializeToString()
 
         # def fix_json(model, json) -> None:
-        #     # model is field with reference, it can be also for example Enum
-        #     if not isinstance(model, BaseModel):
-        #         return
-
-        #     # model.__class__.update_forward_refs()
-        #     # TODO: do we need the whole schema or field iterator would be enough?
-        #     model_schema = model.__class__.model_json_schema()
-        #     schema_properties = get_schema_properties(model_schema)
-
-        #     # TODO: unify with code below
-        #     try:
-        #         proto_reply_type = self.resolved_protos[model.__modapp_path__]
-        #     except KeyError:
-        #         proto_reply_type = self.resolve_proto(model.__modapp_path__)
-        #         if proto_reply_type is None:
-        #             raise ServerError(f"Proto for {model.__class__.__name__} not found")
-        #         else:
-        #             self.resolved_protos[model.__modapp_path__] = proto_reply_type
-
-        #     one_of_fields = proto_reply_type.DESCRIPTOR.oneofs_by_name.keys()
-
         #     for field in model.__dict__:
         #         field_camel_case = to_camel(field)
         #         # convert datetime to google.protobuf.Timestamp instance
@@ -144,54 +128,6 @@ class ProtobufConverter(BaseConverter):
         #                 )
         #                 # TODO: nanos?
         #             )
-        #         elif field_camel_case in one_of_fields:
-        #             # one_of field: match subfield by type and replace `field_camel_case` by
-        #             # subfield name in json
-        #             try:
-        #                 subfield = next(
-        #                     proto_field
-        #                     for proto_field in proto_reply_type.DESCRIPTOR.oneofs_by_name[
-        #                         field_camel_case
-        #                     ].fields
-        #                     if model_field_type_matches_proto_field(
-        #                         model, field, proto_field
-        #                     )
-        #                 )
-        #             except StopIteration:
-        #                 raise ServerError(
-        #                     f"Cannot match field '{field_camel_case}' in proto"
-        #                 )
-        #             if (
-        #                 subfield.type
-        #                 == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
-        #             ):
-        #                 # first fix submessage, then process parent message
-        #                 fix_json(model.__dict__[field], json[field_camel_case])
-        #             json[subfield.name] = json[field_camel_case]
-        #             del json[field_camel_case]
-        #         elif "$ref" in schema_properties[field_camel_case]:
-        #             # model reference, fix recursively
-        #             fix_json(model.__dict__[field], json[field_camel_case])
-        #         elif (
-        #             schema_properties[field_camel_case].get("type", None) == "array"
-        #             and "$ref" in schema_properties[field_camel_case]["items"]
-        #         ):
-        #             # array of model references
-        #             for idx, item in enumerate(model.__dict__[field]):
-        #                 fix_json(item, json[field_camel_case][idx])
-
-        # fix_json(model, model_dict)
-
-        # try:
-        #     proto_reply_type = self.resolved_protos[model.__modapp_path__]
-        # except KeyError:
-        #     proto_reply_type = self.resolve_proto(model.__modapp_path__)
-        #     if proto_reply_type is None:
-        #         raise ServerError(f"Proto for {model} not found")
-        #     else:
-        #         self.resolved_protos[model.__modapp_path__] = proto_reply_type
-
-        # return proto_reply_type(**model_dict).SerializeToString()
 
     def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
