@@ -81,3 +81,17 @@ class TestProtobufConverterRawToModel(ProtobufConverterBaseTestSuite):
         raw_data = context.converter.model_to_raw(model=context.model_instance_ref)
 
         assert raw_data == context.proto_instance.SerializeToString()
+
+    def test_map(self, tmp_path: Path) -> None:
+        context = self.arrange_map_test(tmp_path)
+
+        raw_data = context.converter.model_to_raw(model=context.model_instance_ref)
+
+        assert raw_data == context.proto_instance.SerializeToString()
+
+    def test_nested_map(self, tmp_path: Path) -> None:
+        context = self.arrange_nested_map_test(tmp_path)
+
+        raw_data = context.converter.model_to_raw(model=context.model_instance_ref)
+
+        assert raw_data == context.proto_instance.SerializeToString()

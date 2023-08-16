@@ -73,7 +73,6 @@ class PydanticTestContext(Generic[ModelType]):
 
 # TODO: test errors
 # TODO: test different letter cases in keys
-# TODO: test maps
 # TODO: test model defaults
 # TODO: test correct result if wrong model is passed to raw_to_model
 class ProtobufConverterBaseTestSuite:
@@ -516,4 +515,107 @@ class ProtobufConverterBaseTestSuite:
         )
 
     def test_timestamp(self, tmp_path: Path) -> None:
+        raise NotImplementedError()
+
+    def arrange_map_test(
+        self, tmp_path: Path
+    ) -> PydanticTestContext[data.MessageWithMap]:
+        generated_protos = generate_proto(
+            data.test_map_proto_src,
+            tmp_path,
+        )
+        converter = ProtobufConverter(
+            protos=generated_protos, validator=PydanticValidator()
+        )
+        proto_instance = generated_protos[
+            "modapp.tests.converters.protobuf.test_map.MessageWithMap"
+        ](countries_names={"ua": "Ukraine", "at": "Austria", "us": "United States"})
+        model_instance = data.MessageWithMap(
+            countries_names={"ua": "Ukraine", "at": "Austria", "us": "United States"}
+        )
+        return PydanticTestContext[data.MessageWithMap](
+            converter=converter,
+            proto_instance=proto_instance,
+            generated_protos=generated_protos,
+            model_cls=data.MessageWithMap,
+            model_instance_ref=model_instance,
+        )
+
+    def test_map(self, tmp_path: Path) -> None:
+        raise NotImplementedError()
+
+    def arrange_nested_map_test(
+        self, tmp_path: Path
+    ) -> PydanticTestContext[data.MessageWithNestedMap]:
+        generated_protos = generate_proto(
+            data.test_nested_map_proto_src,
+            tmp_path,
+        )
+        converter = ProtobufConverter(
+            protos=generated_protos, validator=PydanticValidator()
+        )
+        # proto instance
+        city_kyiv_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CityInfo"
+        ](name="Kyiv", square=839)
+        city_lviv_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CityInfo"
+        ](name="Lviv", square=148.9)
+        country_ukraine_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CountryInfo"
+        ](
+            name="Ukraine",
+            city_by_postal_code={"79000": city_lviv_proto, "01001": city_kyiv_proto},
+        )
+        city_vienna_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CityInfo"
+        ](name="Vienna", square=414.78)
+        city_salzburg_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CityInfo"
+        ](name="Salzburg", square=65.65)
+        country_austria_proto = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.CountryInfo"
+        ](
+            name="Austria",
+            city_by_postal_code={
+                "1010": city_vienna_proto,
+                "5020": city_salzburg_proto,
+            },
+        )
+        proto_instance = generated_protos[
+            "modapp.tests.converters.protobuf.test_nested_map.MessageWithNestedMap"
+        ](
+            country_info_by_id={
+                "ua": country_ukraine_proto,
+                "at": country_austria_proto,
+            }
+        )
+        # model instance
+        city_kyiv = data.CityInfo(name="Kyiv", square=839)
+        city_lviv = data.CityInfo(name="Lviv", square=148.9)
+        country_ukraine = data.CountryInfo(
+            name="Ukraine",
+            city_by_postal_code={"79000": city_lviv, "01001": city_kyiv},
+        )
+        city_vienna = data.CityInfo(name="Vienna", square=414.78)
+        city_salzburg = data.CityInfo(name="Salzburg", square=65.65)
+        country_austria = data.CountryInfo(
+            name="Austria",
+            city_by_postal_code={"1010": city_vienna, "5020": city_salzburg},
+        )
+        model_instance = data.MessageWithNestedMap(
+            country_info_by_id={
+                "ua": country_ukraine,
+                "at": country_austria,
+            },
+        )
+        return PydanticTestContext[data.MessageWithNestedMap](
+            converter=converter,
+            proto_instance=proto_instance,
+            generated_protos=generated_protos,
+            model_cls=data.MessageWithNestedMap,
+            model_instance_ref=model_instance,
+        )
+
+    def test_nested_map(self, tmp_path: Path) -> None:
         raise NotImplementedError()

@@ -1,13 +1,12 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-
-# from datetime import timezone
 from typing import TYPE_CHECKING, Any, Type
 
 import google.protobuf.descriptor as protobuf_descriptor
 from google.protobuf import message as protobuf_message
-
 from google.protobuf.timestamp_pb2 import Timestamp
+
+from google._upb._message import ScalarMapContainer, MessageMapContainer
 from google.rpc import status_pb2
 from google.rpc.error_details_pb2 import BadRequest
 from loguru import logger
@@ -80,48 +79,10 @@ class ProtobufConverter(BaseConverter):
 
     def model_to_raw(self, model: BaseModel) -> bytes:
         model_dict = self.validator.model_to_dict(model=model)
-        try:
-            proto_cls = self.protos[model.__modapp_path__]
-        except KeyError:
-            raise ServerError(f"Proto for {model.__modapp_path__} not found")
-
-        # serialize 'oneof' fields
-        for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
-            if oneof_name in model_dict:
-                try:
-                    proto_field_name = next(
-                        field.name
-                        for field in oneof_descriptor.fields
-                        if model_field_type_matches_proto_field(
-                            field_value=model_dict[oneof_name], proto_field=field
-                        )
-                    )
-                except StopIteration:
-                    raise Exception(
-                        f"Field not found in oneof {oneof_name} in message"
-                        f" {proto_cls.DESCRIPTOR.full_name} for value"
-                        f" {model_dict[oneof_name]}"
-                    )
-                model_dict[proto_field_name] = model_dict[oneof_name]
-                del model_dict[oneof_name]
-
-        # python enum to integer
-        for field in proto_cls.DESCRIPTOR.fields:
-            if field.type == field.TYPE_ENUM:
-                model_dict[field.name] = model_dict[field.name].value
-            elif (
-                field.type == field.TYPE_MESSAGE
-                and field.message_type.full_name == "google.protobuf.Timestamp"
-            ):
-                datetime_value = model_dict[field.name]
-                model_dict[field.name] = Timestamp(
-                    seconds=int(
-                        datetime_value.replace(tzinfo=timezone.utc).timestamp()
-                    ),
-                    nanos=datetime_value.microsecond * 1000,
-                )
-
-        return proto_cls(**model_dict).SerializeToString()
+        proto_obj = self.__dict_to_proto_obj(
+            model_dict=model_dict, modapp_path=model.__modapp_path__
+        )
+        return proto_obj.SerializeToString()
 
     def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
@@ -192,12 +153,31 @@ class ProtobufConverter(BaseConverter):
                     model_dict[
                         field.containing_oneof.name
                     ] = proto_obj.__getattribute__(field.name)
-            if field.label == field.LABEL_REPEATED and field.type == field.TYPE_MESSAGE:
-                # repeated with messages: convert messages
-                model_dict[field.name] = [
-                    self.__proto_obj_to_dict(item)
-                    for item in proto_obj.__getattribute__(field.name)
-                ]
+            elif (
+                field.label == field.LABEL_REPEATED and field.type == field.TYPE_MESSAGE
+            ):
+                if isinstance(
+                    proto_obj.__getattribute__(field.name), ScalarMapContainer
+                ):
+                    # maps are also repeated messages
+                    proto_map = proto_obj.__getattribute__(field.name)
+                    model_dict[field.name] = {
+                        key: value for key, value in proto_map.items()
+                    }
+                elif isinstance(
+                    proto_obj.__getattribute__(field.name), MessageMapContainer
+                ):
+                    proto_map = proto_obj.__getattribute__(field.name)
+                    model_dict[field.name] = {
+                        key: self.__proto_obj_to_dict(value)
+                        for key, value in proto_map.items()
+                    }
+                else:
+                    # repeated with messages: convert messages
+                    model_dict[field.name] = [
+                        self.__proto_obj_to_dict(item)
+                        for item in proto_obj.__getattribute__(field.name)
+                    ]
             elif field.type == field.TYPE_MESSAGE:
                 if field.message_type.full_name == "google.protobuf.Timestamp":
                     timestamp_obj = proto_obj.__getattribute__(field.name)
@@ -213,6 +193,78 @@ class ProtobufConverter(BaseConverter):
             else:
                 model_dict[field.name] = proto_obj.__getattribute__(field.name)
         return model_dict
+
+    def __dict_to_proto_obj(
+        self, model_dict: dict[str, Any], modapp_path: str
+    ) -> protobuf_message.Message:
+        try:
+            proto_cls = self.protos[modapp_path]
+        except KeyError:
+            raise ServerError(f"Proto for {modapp_path} not found")
+
+        # serialize 'oneof' fields
+        for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
+            if oneof_name in model_dict:
+                try:
+                    proto_field_name = next(
+                        field.name
+                        for field in oneof_descriptor.fields
+                        if model_field_type_matches_proto_field(
+                            field_value=model_dict[oneof_name], proto_field=field
+                        )
+                    )
+                except StopIteration:
+                    raise Exception(
+                        f"Field not found in oneof {oneof_name} in message"
+                        f" {proto_cls.DESCRIPTOR.full_name} for value"
+                        f" {model_dict[oneof_name]}"
+                    )
+                model_dict[proto_field_name] = model_dict[oneof_name]
+                del model_dict[oneof_name]
+
+        # python enum to integer
+        for field in proto_cls.DESCRIPTOR.fields:
+            if field.type == field.TYPE_ENUM:
+                model_dict[field.name] = model_dict[field.name].value
+            elif field.type == field.TYPE_MESSAGE:
+                if field.message_type.full_name == "google.protobuf.Timestamp":
+                    datetime_value = model_dict[field.name]
+                    model_dict[field.name] = Timestamp(
+                        seconds=int(
+                            datetime_value.replace(tzinfo=timezone.utc).timestamp()
+                        ),
+                        nanos=datetime_value.microsecond * 1000,
+                    )
+                elif field.label == field.LABEL_REPEATED:
+                    # maps with messages as values in proto descriptor are repeated messages with
+                    # automatically generated name <FieldNamePascal>Entry. This name cannot be used
+                    # for own messages, so it is unambiguous identifier of a map. At the same time
+                    # it means user cannot create own repeated list of messages with such pattern
+                    # in the name and (key, value) fields inside.
+                    if (
+                        field.message_type.name
+                        == f"{field.camelcase_name[0].upper()}{field.camelcase_name[1:]}Entry"
+                    ):
+                        map_proto_type = field.message_type
+                        if (
+                            "key" in map_proto_type.fields_by_name
+                            and "value" in map_proto_type.fields_by_name
+                        ):
+                            value_message_type = map_proto_type.fields_by_name["value"]
+                            if value_message_type.message_type is not None:
+                                # message type is None for scalars
+                                value_proto_type_identifier = (
+                                    value_message_type.message_type.full_name
+                                )
+                                model_dict[field.name] = {
+                                    key: self.__dict_to_proto_obj(
+                                        model_dict=value,
+                                        modapp_path=value_proto_type_identifier,
+                                    )
+                                    for (key, value) in model_dict[field.name].items()
+                                }
+
+        return proto_cls(**model_dict)
 
 
 __all__ = ["ProtobufConverter"]

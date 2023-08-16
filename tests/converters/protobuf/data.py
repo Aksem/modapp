@@ -379,3 +379,67 @@ class MessageWithTimestamp(BaseModel):
     __modapp_path__ = (
         "modapp.tests.converters.protobuf.test_timestamp.MessageWithTimestamp"
     )
+
+
+test_map_proto_src = """
+syntax = "proto3";
+package modapp.tests.converters.protobuf.test_map;
+
+message MessageWithMap {
+    map<string, string> countries_names = 1;
+}
+"""
+
+
+class MessageWithMap(BaseModel):
+    countries_names: dict[str, str]
+
+    __modapp_path__ = "modapp.tests.converters.protobuf.test_map.MessageWithMap"
+
+
+class CountryInfo(BaseModel):
+    name: str
+    city_by_postal_code: dict[str, CityInfo]
+
+    __modapp_path__ = "modapp.tests.converters.protobuf.test_nested_map.CountryInfo"
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+
+class CityInfo(BaseModel):
+    name: str
+    square: float
+
+    __modapp_path__ = "modapp.tests.converters.protobuf.test_nested_map.CityInfo"
+    
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+
+test_nested_map_proto_src = """
+syntax = "proto3";
+package modapp.tests.converters.protobuf.test_nested_map;
+
+message CountryInfo {
+    string name = 1;
+    map<string, CityInfo> city_by_postal_code = 2;
+}
+
+message CityInfo {
+    string name = 1;
+    double square = 2;
+}
+
+message MessageWithNestedMap {
+    map<string, CountryInfo> country_info_by_id = 1;
+}
+"""
+
+
+class MessageWithNestedMap(BaseModel):
+    country_info_by_id: dict[str, CountryInfo]
+
+    __modapp_path__ = (
+        "modapp.tests.converters.protobuf.test_nested_map.MessageWithNestedMap"
+    )
