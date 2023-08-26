@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterator, TypeVar, cast
 
 from modapp import params
 
@@ -11,7 +11,9 @@ DependencyReturnType = TypeVar("DependencyReturnType")
 
 
 def Depends(
-    dependency: Optional[Callable[..., Iterator[DependencyReturnType]]] = None,
+    dependency: Callable[..., Iterator[DependencyReturnType]],
     use_cache: bool = True,
 ) -> DependencyReturnType:
-    return params.Depends(dependency=dependency, use_cache=use_cache)
+    return cast(
+        DependencyReturnType, params.Depends(dependency=dependency, use_cache=use_cache)
+    )

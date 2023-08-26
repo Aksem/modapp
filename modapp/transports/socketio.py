@@ -1,10 +1,10 @@
 from random import seed
-from typing import AsyncIterator, Dict, Optional, Union
+from typing import AsyncIterator, Dict, Union
 
-import socketio
+import socketio  # type: ignore
 from aiohttp import web
 from loguru import logger
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport, BaseTransportConfig
@@ -26,25 +26,26 @@ class SocketioTransport(BaseTransport):
     CONFIG_KEY = "socketio"
 
     def __init__(
-        self, config: SocketioTransportConfig, converter: Optional[BaseConverter] = None
+        self, config: SocketioTransportConfig, converter: BaseConverter | None = None
     ) -> None:
         super().__init__(config, converter)
-        self.runner: Optional[web.AppRunner] = None
+        self.runner: web.AppRunner | None = None
 
+    @override
     async def start(self, routes: RoutesDict) -> None:
         sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
         app = web.Application()
         sio.attach(app)
 
-        @sio.event
-        async def connect(sid, environ, auth):
+        @sio.event  # type: ignore
+        async def connect(sid: int, environ, auth) -> None:
             logger.info("connected: " + str(sid))
 
-        @sio.event
-        def disconnect(sid):
+        @sio.event  # type: ignore
+        def disconnect(sid: int) -> None:
             logger.info("disconnected: " + str(sid))
 
-        @sio.event
+        @sio.event  # type: ignore
         async def grpc_request_v2(
             sid, method_name: str, meta: Dict[str, Union[str, int, bool]], data: bytes
         ):
@@ -55,7 +56,7 @@ class SocketioTransport(BaseTransport):
             except KeyError:
                 logger.error(f"Endpoint '{method_name}' not found")
                 error = NotFoundError(f"Endpoint '{method_name}' not found")
-                return (self.converter.error_to_raw(error, None), None)
+                return (self.converter.error_to_raw(error), None)
 
             # TODO: get and validate meta data
 
@@ -66,7 +67,7 @@ class SocketioTransport(BaseTransport):
                 InvalidArgumentError,
                 ServerError,
             ) as error:  # TODO: base error?
-                return (self.converter.error_to_raw(error, route), None)
+                return (self.converter.error_to_raw(error), None)
 
             if (
                 route.proto_cardinality == Cardinality.UNARY_UNARY
@@ -76,16 +77,21 @@ class SocketioTransport(BaseTransport):
             else:
                 assert isinstance(reply, AsyncIterator)
                 async for reply_item in reply:
-                    await sio.emit(f"{method_name}_{request_id}_reply", reply_item)
+                    await sio.emit(
+                        f"{method_name}_{meta['request_id']}_reply", reply_item
+                    )
 
         self.runner = web.AppRunner(app)
         await self.runner.setup()
-        address: str = self.config.get("address", DEFAULT_CONFIG.get("address"))
-        port: int = self.config.get("port", DEFAULT_CONFIG.get("port"))
+        address = self.config.get("address", DEFAULT_CONFIG.get("address"))
+        assert isinstance(address, str), "Address expected to be a string"
+        port = self.config.get("port", DEFAULT_CONFIG.get("port"))
+        assert isinstance(port, int), "Port expected to be an int"
         site = web.TCPSite(self.runner, address, port)
         await site.start()
         logger.info(f"Start socketio server: {address}:{port}")
 
+    @override
     async def stop(self) -> None:
         if self.runner is not None:
             await self.runner.cleanup()

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Self, Type, TypeVar
 
 from modapp.base_converter import BaseConverter
 from modapp.models import BaseModel
@@ -11,11 +11,12 @@ class BaseChannel(ABC):
     def __init__(self, converter: BaseConverter) -> None:
         self.converter = converter
 
-    def __aenter__(self):
+    def __aenter__(self) -> Self:
         return self
 
-    def __aexit__(self):
-        ...
+    @abstractmethod
+    def __aexit__(self) -> None:
+        pass
 
     @abstractmethod
     async def send_unary_unary(
@@ -38,11 +39,11 @@ class BaseChannel(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def send_stream_unary(self):
+    async def send_stream_unary(self) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    async def send_stream_stream(self):
+    async def send_stream_stream(self) -> None:
         raise NotImplementedError()
 
 

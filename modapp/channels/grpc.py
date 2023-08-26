@@ -4,6 +4,7 @@ from grpclib import client as grpclib_client
 from grpclib.const import Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.client import BaseChannel
@@ -22,10 +23,12 @@ T = TypeVar("T", bound=BaseModel)
 class RawCodec(CodecBase):
     __content_subtype__ = "proto"
 
-    def encode(self, message, message_type):
+    @override
+    def encode(self, message: Any, message_type: Any) -> Any:
         return message
 
-    def decode(self, data: bytes, message_type):
+    @override
+    def decode(self, data: bytes, message_type: Any) -> Any:
         return data
 
 
@@ -42,14 +45,13 @@ class GrpcChannel(BaseChannel):
     def __establish_channel(self) -> grpclib_client.Channel:
         return grpclib_client.Channel(self.__host, self.__port, codec=RawCodec())
 
-    def __aenter__(self):
-        return self
-
-    def __aexit__(self):
+    @override
+    def __aexit__(self) -> None:
         if self.__grpclib_channel is not None:
             self.__grpclib_channel.close()
             self.__grpclib_channel = None
 
+    @override
     async def send_unary_unary(
         self,
         route_path: str,
@@ -74,6 +76,7 @@ class GrpcChannel(BaseChannel):
             raise self.__grpc_error_to_modapp(grpc_error)
         return self.converter.raw_to_model(raw_reply, reply_cls)
 
+    @override
     async def send_unary_stream(
         self,
         route_path: str,
@@ -99,10 +102,12 @@ class GrpcChannel(BaseChannel):
         except GRPCError as grpc_error:
             raise self.__grpc_error_to_modapp(grpc_error)
 
+    @override
     async def send_stream_unary(self) -> None:
         # TODO
         raise NotImplementedError()
 
+    @override
     async def send_stream_stream(self) -> None:
         # TODO
         raise NotImplementedError()

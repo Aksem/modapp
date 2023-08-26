@@ -26,7 +26,7 @@ class PersistanceError(BaseModappError):
 
 @unique
 class Status(Enum):
-    """Predefined gRPC status codes represented as enum
+    """Predefined gRPC status codes represented as enum.
 
     See also: https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
     """

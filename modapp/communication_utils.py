@@ -14,9 +14,13 @@ async def run_request_handler(
 ) -> BaseModel:
     try:
         if iscoroutine(route.handler):
-            reply = await route.handler(**handler_arguments)
+            # assert isinstance(route.handler, Coroutine)
+            reply = await route.handler(
+                handler_arguments["request"], **handler_arguments
+            )
         else:
-            reply = route.handler(**handler_arguments)
+            # assert isinstance(route.handler, Callable[..., Any])
+            reply = route.handler(handler_arguments["request"], **handler_arguments)
         return reply
     except ValidationError as error:
         # failed to validate reply

@@ -1,20 +1,21 @@
 from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Type
+from typing import TYPE_CHECKING, Any, Type, cast
 
 import google.protobuf.descriptor as protobuf_descriptor
+from google._upb._message import MessageMapContainer, ScalarMapContainer  # type: ignore
 from google.protobuf import message as protobuf_message
 from google.protobuf.timestamp_pb2 import Timestamp
-
-from google._upb._message import ScalarMapContainer, MessageMapContainer
-from google.rpc import status_pb2
-from google.rpc.error_details_pb2 import BadRequest
+from google.rpc import status_pb2  # type: ignore
+from google.rpc.error_details_pb2 import BadRequest  # type: ignore
 from loguru import logger
+from typing_extensions import override
 
-from modapp.base_converter import BaseConverter, ModelType
+from modapp.base_converter import BaseConverter
 from modapp.base_validator import BaseValidator
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
-from modapp.models import BaseModel, to_camel  # , to_snake
+from modapp.models import BaseModel, ModelType, to_camel  # , to_snake
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError
@@ -47,7 +48,9 @@ def model_field_type_matches_proto_field(
     field_value: Any, proto_field: protobuf_descriptor.FieldDescriptor
 ) -> bool:
     if proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
-        return proto_field.message_type.full_name == field_value.__modapp_path__
+        return cast(
+            bool, proto_field.message_type.full_name == field_value.__modapp_path__
+        )
     # TODO: what if few proto type map to the same python type? like oneof { int32, int64 }
     return isinstance(field_value, PRIMITIVE_TYPE_PROTO_TO_PY_MAP[proto_field.type])
 
@@ -63,6 +66,7 @@ class ProtobufConverter(BaseConverter):
         self.validator = validator
         # self.resolved_protos: dict[str, Type[protobuf_message.Message]] = {}
 
+    @override
     def raw_to_model(self, raw: bytes, model_cls: Type[ModelType]) -> ModelType:
         try:
             proto_cls = self.protos[model_cls.__modapp_path__]
@@ -77,6 +81,7 @@ class ProtobufConverter(BaseConverter):
             model_dict=model_dict, model_cls=model_cls
         )
 
+    @override
     def model_to_raw(self, model: BaseModel) -> bytes:
         model_dict = self.validator.model_to_dict(model=model)
         proto_obj = self.__dict_to_proto_obj(
@@ -84,6 +89,7 @@ class ProtobufConverter(BaseConverter):
         )
         return proto_obj.SerializeToString()
 
+    @override
     def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
             return self.__invalid_argument_to_raw(error)
@@ -109,13 +115,13 @@ class ProtobufConverter(BaseConverter):
         )
         detail_container = status_proto.details.add()
         detail_container.Pack(detail)
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
     def __not_found_to_raw(self, error: NotFoundError) -> bytes:
         status_proto = status_pb2.Status(
             code=Status.NOT_FOUND.value, message="Not found."
         )
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
     def __server_error_to_raw(self, error: ServerError) -> bytes:
         if len(error.args) > 0:
@@ -123,7 +129,7 @@ class ProtobufConverter(BaseConverter):
         else:
             message = "Internal error"
         status_proto = status_pb2.Status(code=Status.INTERNAL.value, message=message)
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
     def resolve_proto(self, model_path: str) -> Type[protobuf_message.Message] | None:
         try:
@@ -161,9 +167,7 @@ class ProtobufConverter(BaseConverter):
                 ):
                     # maps are also repeated messages
                     proto_map = proto_obj.__getattribute__(field.name)
-                    model_dict[field.name] = {
-                        key: value for key, value in proto_map.items()
-                    }
+                    model_dict[field.name] = dict(proto_map.items())
                 elif isinstance(
                     proto_obj.__getattribute__(field.name), MessageMapContainer
                 ):

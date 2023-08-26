@@ -7,4 +7,4 @@ if TYPE_CHECKING:
 
 
 def get_default_converter() -> BaseConverter:
-    ...
+    raise NotImplementedError()

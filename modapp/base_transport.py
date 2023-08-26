@@ -3,15 +3,7 @@ from __future__ import annotations
 import traceback
 from abc import ABC
 from contextlib import AsyncExitStack
-from typing import (
-    TYPE_CHECKING,
-    AsyncIterator,
-    Callable,
-    Dict,
-    Optional,
-    TypedDict,
-    Union,
-)
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, TypedDict, Union
 
 from loguru import logger
 
@@ -20,6 +12,7 @@ from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.models import BaseModel
 from modapp.routing import Cardinality, Route
+from modapp.types import Metadata
 
 if TYPE_CHECKING:
     from .routing import RoutesDict
@@ -51,7 +44,7 @@ class BaseTransport(ABC):
         self,
         route: Route,
         raw_data: bytes,
-        meta: Dict[str, Union[str, int, bool]],
+        meta: Metadata,
     ) -> Union[bytes, AsyncIterator[bytes]]:
         # request body
         try:
@@ -83,12 +76,15 @@ class BaseTransport(ABC):
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
 
                 async def handle_request(
-                    handler: Callable,
+                    handler: Callable[..., AsyncIterator[BaseModel]],
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:
                     response_iterator = handler()
                     logger.debug(f"Response stream on {route.path} ready")
+                    assert isinstance(
+                        response_iterator, AsyncIterator
+                    ), "Reply stream expected to be async iterator"
                     async for reply in response_iterator:
                         proto_reply = converter.model_to_raw(reply)
                         yield proto_reply
@@ -109,6 +105,8 @@ class BaseTransport(ABC):
         finally:
             # logger.debug("Close request stack")
             await stack.aclose()
+
+        raise Exception()
 
 
 __all__ = ["BaseTransportConfig", "BaseTransport"]

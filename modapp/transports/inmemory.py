@@ -1,12 +1,10 @@
-import concurrent.futures
-import inspect
 from typing import AsyncIterator, Optional
 
-from loguru import logger
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport, BaseTransportConfig
-from modapp.errors import BaseModappError, ServerError
+from modapp.errors import ServerError
 from modapp.routing import RoutesDict
 
 
@@ -26,9 +24,11 @@ class InMemoryTransport(BaseTransport):
         super().__init__(config, converter)
         self.routes: Optional[RoutesDict] = None
 
+    @override
     async def start(self, routes: RoutesDict) -> None:
         self.routes = routes
 
+    @override
     async def stop(self) -> None:
         self.routes = None
 
@@ -42,7 +42,7 @@ class InMemoryTransport(BaseTransport):
         except KeyError:
             raise ServerError()  # TODO
         # with concurrent.futures.ThreadPoolExecutor() as executor:
-        meta = {}  # TODO
+        meta: dict[str, str | int | bool] = {}  # TODO
         data = await self.got_request(route=route, raw_data=request_data, meta=meta)
         return data
         # future = executor.submit(

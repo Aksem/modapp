@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import platform
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Coroutine
 
 from loguru import logger
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from modapp.types import DecoratedCallable
 
 
-def run_in_better_loop(coroutine):
+def run_in_better_loop(coroutine: Callable[..., Coroutine[Any, Any, Any]]) -> None:
     import sys
 
     # uvloop doesn't support Windows yet
@@ -25,7 +25,7 @@ def run_in_better_loop(coroutine):
 
         loop_lib = uvloop
     else:
-        import winloop
+        import winloop  # type: ignore
 
         loop_lib = winloop
 
