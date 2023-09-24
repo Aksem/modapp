@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Type, cast
 
 import google.protobuf.descriptor as protobuf_descriptor
@@ -162,9 +163,9 @@ class ProtobufConverter(BaseConverter):
                         proto_obj.__getattribute__(field.name)
                     )
                 else:
-                    model_dict[
-                        field.containing_oneof.name
-                    ] = proto_obj.__getattribute__(field.name)
+                    model_dict[field.containing_oneof.name] = (
+                        proto_obj.__getattribute__(field.name)
+                    )
             elif (
                 field.label == field.LABEL_REPEATED and field.type == field.TYPE_MESSAGE
             ):
@@ -242,7 +243,11 @@ class ProtobufConverter(BaseConverter):
                 continue
 
             if field.type == field.TYPE_ENUM:
-                model_dict[field.name] = model_dict[field.name].value
+                model_dict[field.name] = (
+                    model_dict[field.name].value
+                    if isinstance(model_dict[field.name], Enum)
+                    else model_dict[field.name]
+                )
             elif field.type == field.TYPE_MESSAGE:
                 if field.message_type.full_name == "google.protobuf.Timestamp":
                     datetime_value = model_dict[field.name]

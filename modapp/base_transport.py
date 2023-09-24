@@ -60,9 +60,6 @@ class BaseTransport(ABC):
             f"Request to {route.path}: {{request_data}}",
             request_data=lambda: request_data.model_dump_json(indent=2),
         )
-        # here or on initialization?
-        # updating is needed if response type has submodels
-        route.reply_type.update_forward_refs()
 
         # TODO: validate if there is validator?
         stack = AsyncExitStack()
