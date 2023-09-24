@@ -53,3 +53,7 @@ class InMemoryChannel(BaseChannel):
     @override
     async def send_stream_stream(self) -> None:
         raise NotImplementedError()
+
+    @override
+    def __aexit__(self) -> None:
+        pass
