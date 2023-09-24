@@ -100,6 +100,7 @@ class HandlerStorage:
                     else:
                         await stream.send_message(response)
                 except BaseModappError as modapp_error:
+                    logger.trace(f"Grpc request handling error: {modapp_error}")
                     raise modapp_error_to_grpc(modapp_error, self.converter)
                 except Exception as e:
                     logger.exception(e)

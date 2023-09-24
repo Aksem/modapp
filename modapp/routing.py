@@ -12,7 +12,7 @@ from loguru import logger
 from typing_extensions import Protocol
 
 from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
-from modapp.models import BaseModel, to_camel
+from modapp.models import BaseModel
 
 from .params import Depends, Meta
 
@@ -90,7 +90,7 @@ class Route:
         try:
             handler_args.update(
                 {
-                    meta_key: meta[to_camel(meta_key)]
+                    meta_key: meta[meta_key]
                     for meta_key in self.handler_meta_kwargs.keys()
                 }
             )

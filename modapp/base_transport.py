@@ -56,7 +56,10 @@ class BaseTransport(ABC):
             )
             raise error
 
-        logger.debug(f"Request to {route.path}: {request_data}")
+        logger.opt(lazy=True).debug(
+            f"Request to {route.path}: {{request_data}}",
+            request_data=lambda: request_data.model_dump_json(indent=2),
+        )
         # here or on initialization?
         # updating is needed if response type has submodels
         route.reply_type.update_forward_refs()
@@ -71,7 +74,10 @@ class BaseTransport(ABC):
                 # modapp validates request handlers, trust it
                 assert isinstance(reply, BaseModel)
                 proto_reply = self.converter.model_to_raw(reply)
-                logger.debug(f"Response on {route.path}: {reply}")
+                logger.opt(lazy=True).debug(
+                    f"Response on {route.path}: {{reply_str}}",
+                    reply_str=lambda: reply.model_dump_json(indent=2),
+                )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
 

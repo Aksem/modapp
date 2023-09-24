@@ -1,4 +1,3 @@
-import re
 from typing import TypeVar
 
 from pydantic import BaseModel as PBaseModel
@@ -57,26 +56,10 @@ from pydantic.types import (
 )
 
 
-def to_camel(string: str) -> str:
-    splitted = string.split("_")
-    return splitted[0] + "".join(word.capitalize() for word in splitted[1:])
-
-
-# TODO: move
-pattern = re.compile(r"(?<!^)(?=[A-Z])")
-
-
-def to_snake(camelStr: str) -> str:
-    return pattern.sub("_", camelStr).lower()
-
-
 class BaseModel(PBaseModel):
     __modapp_path__: str = ""
 
-    model_config = {
-        "populate_by_name": True,
-        "alias_generator": to_camel,
-    }
+    model_config = {}
 
 
 ModelType = TypeVar("ModelType", bound=BaseModel)
@@ -86,7 +69,6 @@ __all__ = [
     "BaseModel",
     "ModelType",
     "validator",
-    "to_camel",
     "ValidationError",
     # pydantic types
     "StrictStr",

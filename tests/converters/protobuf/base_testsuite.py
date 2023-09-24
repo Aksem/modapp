@@ -71,6 +71,7 @@ class PydanticTestContext(Generic[ModelType]):
     model_instance_ref: ModelType
 
 
+# TODO: test nested messages in repeated
 # TODO: test errors
 # TODO: test different letter cases in keys
 # TODO: test model defaults

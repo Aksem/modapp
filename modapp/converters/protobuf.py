@@ -15,7 +15,7 @@ from typing_extensions import override
 from modapp.base_converter import BaseConverter
 from modapp.base_validator import BaseValidator
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
-from modapp.models import BaseModel, ModelType, to_camel  # , to_snake
+from modapp.models import BaseModel, ModelType
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError
@@ -45,14 +45,19 @@ PRIMITIVE_TYPE_PROTO_TO_PY_MAP = {
 
 
 def model_field_type_matches_proto_field(
-    field_value: Any, proto_field: protobuf_descriptor.FieldDescriptor
+    dict_field_value: Any,
+    model_field_value: Any,
+    proto_field: protobuf_descriptor.FieldDescriptor,
 ) -> bool:
     if proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
         return cast(
-            bool, proto_field.message_type.full_name == field_value.__modapp_path__
+            bool,
+            proto_field.message_type.full_name == model_field_value.__modapp_path__,
         )
     # TODO: what if few proto type map to the same python type? like oneof { int32, int64 }
-    return isinstance(field_value, PRIMITIVE_TYPE_PROTO_TO_PY_MAP[proto_field.type])
+    return isinstance(
+        dict_field_value, PRIMITIVE_TYPE_PROTO_TO_PY_MAP[proto_field.type]
+    )
 
 
 class ProtobufConverter(BaseConverter):
@@ -85,7 +90,8 @@ class ProtobufConverter(BaseConverter):
     def model_to_raw(self, model: BaseModel) -> bytes:
         model_dict = self.validator.model_to_dict(model=model)
         proto_obj = self.__dict_to_proto_obj(
-            model_dict=model_dict, modapp_path=model.__modapp_path__
+            model_dict=model_dict,
+            model_obj=model,
         )
         return proto_obj.SerializeToString()
 
@@ -107,7 +113,7 @@ class ProtobufConverter(BaseConverter):
         detail = BadRequest(
             field_violations=[
                 BadRequest.FieldViolation(
-                    field=to_camel(field_name),
+                    field=field_name,
                     description=field_error,
                 )
                 for (field_name, field_error) in error.errors_by_fields.items()
@@ -199,12 +205,14 @@ class ProtobufConverter(BaseConverter):
         return model_dict
 
     def __dict_to_proto_obj(
-        self, model_dict: dict[str, Any], modapp_path: str
+        self,
+        model_dict: dict[str, Any],
+        model_obj: BaseModel,
     ) -> protobuf_message.Message:
         try:
-            proto_cls = self.protos[modapp_path]
+            proto_cls = self.protos[model_obj.__modapp_path__]
         except KeyError:
-            raise ServerError(f"Proto for {modapp_path} not found")
+            raise ServerError(f"Proto for {model_obj.__modapp_path__} not found")
 
         # serialize 'oneof' fields
         for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
@@ -214,7 +222,9 @@ class ProtobufConverter(BaseConverter):
                         field.name
                         for field in oneof_descriptor.fields
                         if model_field_type_matches_proto_field(
-                            field_value=model_dict[oneof_name], proto_field=field
+                            dict_field_value=model_dict[oneof_name],
+                            model_field_value=model_obj.__getattribute__(oneof_name),
+                            proto_field=field,
                         )
                     )
                 except StopIteration:
@@ -228,6 +238,9 @@ class ProtobufConverter(BaseConverter):
 
         # python enum to integer
         for field in proto_cls.DESCRIPTOR.fields:
+            if field.name not in model_dict:
+                continue
+
             if field.type == field.TYPE_ENUM:
                 model_dict[field.name] = model_dict[field.name].value
             elif field.type == field.TYPE_MESSAGE:
@@ -256,17 +269,37 @@ class ProtobufConverter(BaseConverter):
                         ):
                             value_message_type = map_proto_type.fields_by_name["value"]
                             if value_message_type.message_type is not None:
-                                # message type is None for scalars
-                                value_proto_type_identifier = (
-                                    value_message_type.message_type.full_name
-                                )
                                 model_dict[field.name] = {
                                     key: self.__dict_to_proto_obj(
                                         model_dict=value,
-                                        modapp_path=value_proto_type_identifier,
+                                        model_obj=model_obj.__getattribute__(
+                                            field.name
+                                        )[key],
                                     )
                                     for (key, value) in model_dict[field.name].items()
                                 }
+                    else:
+                        # repeated with nested message
+                        # value_proto_type_identifier = field.message_type.full_name
+                        model_dict[field.name] = [
+                            self.__dict_to_proto_obj(
+                                model_dict=item_dict,
+                                model_obj=model_obj.__getattribute__(field.name)[idx],
+                                # modapp_path=value_proto_type_identifier,
+                            )
+                            for (idx, item_dict) in enumerate(model_dict[field.name])
+                        ]
+                else:
+                    # nested message
+                    field_name_in_obj = (
+                        field.containing_oneof.name
+                        if field.containing_oneof is not None
+                        else field.name
+                    )
+                    model_dict[field.name] = self.__dict_to_proto_obj(
+                        model_dict=model_dict[field.name],
+                        model_obj=model_obj.__getattribute__(field_name_in_obj),
+                    )
 
         return proto_cls(**model_dict)
 

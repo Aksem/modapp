@@ -9,6 +9,8 @@ from modapp.models import BaseModel, ModelType
 
 
 class PydanticValidator(BaseValidator):
+    dump_options: dict[str, Any] = {}
+
     @override
     def validate_and_construct_from_dict(
         self, model_dict: dict[str, Any], model_cls: Type[ModelType]
@@ -22,4 +24,4 @@ class PydanticValidator(BaseValidator):
 
     @override
     def model_to_dict(self, model: BaseModel) -> dict[str, Any]:
-        return model.model_dump()  # by_alias=True
+        return model.model_dump(**self.dump_options)
