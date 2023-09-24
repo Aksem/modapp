@@ -1,5 +1,11 @@
+import sys
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Dict, Optional, Self, Type, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
+
+if sys.version_info >= (3, 11, 0):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from modapp.base_converter import BaseConverter
 from modapp.models import BaseModel
