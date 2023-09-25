@@ -11,7 +11,7 @@ python = "^3.9"
 loguru = "^0.7.0"
 pydantic = "^2.0"
 uvloop = { version = "^0.17.0", markers = "sys_platform != 'win32'", optional = true }
-winloop = { version = "^0.0.6", markers = "sys_platform == 'win32'", optional = true }
+winloop = { version = "^0.0.8", markers = "sys_platform == 'win32'", optional = true }
 grpclib = { version = "^0.4.5", optional = true }
 googleapis-common-protos = { version = "^1.59.1", optional = true }
 aiohttp = { version = "^3.8.4", optional = true }
@@ -37,7 +37,7 @@ types-protobuf = "^4.21.0.2"
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 pytest-mock = "^3.10.0"
-pytest-memray = "^1.4.0"
+pytest-memray = { version = "^1.4.0", markers = "sys_platform == 'linux' or sys_platform == 'darwin'" }
 pyinstrument = "^4.4.0"
 pytest-benchmark = "^4.0.0"
 grpcio-tools = "^1.56.0"
