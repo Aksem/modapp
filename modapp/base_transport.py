@@ -2,24 +2,17 @@ from __future__ import annotations
 
 import traceback
 from abc import ABC
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Optional,
-    TypedDict,
-    Union,
-    AsyncIterator,
-    Dict
-)
 from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, TypedDict, Union
 
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.converter_utils import get_default_converter
+from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.models import BaseModel
-from modapp.routing import Route, Cardinality
+from modapp.routing import Cardinality, Route
+from modapp.types import Metadata
 
 if TYPE_CHECKING:
     from .routing import RoutesDict
@@ -51,7 +44,7 @@ class BaseTransport(ABC):
         self,
         route: Route,
         raw_data: bytes,
-        meta: Dict[str, Union[str, int, bool]],
+        meta: Metadata,
     ) -> Union[bytes, AsyncIterator[bytes]]:
         # request body
         try:
@@ -63,10 +56,10 @@ class BaseTransport(ABC):
             )
             raise error
 
-        logger.debug(f"Request to {route.path}: {request_data}")
-        # here or on initialization?
-        # updating is needed if response type has submodels
-        route.reply_type.update_forward_refs()
+        logger.opt(lazy=True).debug(
+            f"Request to {route.path}: {{request_data}}",
+            request_data=lambda: request_data.model_dump_json(indent=2),
+        )
 
         # TODO: validate if there is validator?
         stack = AsyncExitStack()
@@ -78,20 +71,29 @@ class BaseTransport(ABC):
                 # modapp validates request handlers, trust it
                 assert isinstance(reply, BaseModel)
                 proto_reply = self.converter.model_to_raw(reply)
-                logger.debug(f"Response on {route.path}: {reply}")
+                logger.opt(lazy=True).debug(
+                    f"Response on {route.path}: {{reply_str}}",
+                    reply_str=lambda: reply.model_dump_json(indent=2),
+                )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
+
                 async def handle_request(
-                    handler: Callable,
+                    handler: Callable[..., AsyncIterator[BaseModel]],
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:
                     response_iterator = handler()
                     logger.debug(f"Response stream on {route.path} ready")
+                    assert isinstance(
+                        response_iterator, AsyncIterator
+                    ), "Reply stream expected to be async iterator"
                     async for reply in response_iterator:
                         proto_reply = converter.model_to_raw(reply)
                         yield proto_reply
-                        logger.trace(f"Response stream message on {route.path}: {reply}")
+                        logger.trace(
+                            f"Response stream message on {route.path}: {reply}"
+                        )
                     logger.debug(f"Response stream on {route.path} finished")
 
                 return handle_request(handler, self.converter, route)
@@ -106,6 +108,8 @@ class BaseTransport(ABC):
         finally:
             # logger.debug("Close request stack")
             await stack.aclose()
+
+        raise Exception()
 
 
 __all__ = ["BaseTransportConfig", "BaseTransport"]

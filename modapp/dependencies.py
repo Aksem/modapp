@@ -1,21 +1,23 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Dict, Callable
+
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 if TYPE_CHECKING:
-    from typing import Optional, Sequence, Type
+    from typing import Sequence, Type
 
     from .params import Depends
 
 
-DependencyOverrides = Dict[Callable[..., Any], Callable[..., Any]]
+DependencyOverrides = dict[Callable[..., Any], Callable[..., Any]]
+DependencyFunc = Callable[..., Any] | Coroutine[Any, None, Any]
 
 
 class Dependant:
     def __init__(
         self,
-        callable: Callable,
-        name: Optional[str] = None,
-        dependencies: Optional[Sequence[Dependant]] = None,
+        callable: DependencyFunc,
+        name: str | None = None,
+        dependencies: Sequence[Dependant] | None = None,
     ) -> None:
         self.callable = callable
         self.name = name
@@ -23,7 +25,9 @@ class Dependant:
 
     @classmethod
     def from_depends_list(
-        cls: Type[Dependant], callable: Callable, depends_map: Dict[str, Depends]
+        cls: Type[Dependant],
+        callable: DependencyFunc,
+        depends_map: dict[str, Depends],
     ) -> Dependant:
         return cls(
             callable=callable,
