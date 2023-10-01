@@ -12,7 +12,7 @@ class InMemoryTransportConfig(BaseTransportConfig):
     ...
 
 
-DEFAULT_CONFIG: InMemoryTransportConfig = {}
+DEFAULT_CONFIG: InMemoryTransportConfig = {"max_message_size_kb": 4096}
 
 
 class InMemoryTransport(BaseTransport):

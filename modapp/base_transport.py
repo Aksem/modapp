@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class BaseTransportConfig(TypedDict):
-    ...
+    max_message_size_kb: int
 
 
 class BaseTransport(ABC):

@@ -31,11 +31,11 @@ class GrpcTransportConfig(BaseTransportConfig):
     port: NotRequired[int]
 
 
-DEFAULT_CONFIG: GrpcTransportConfig = {"address": "127.0.0.1", "port": 50051}
-
-
-# async def recv_request(event: RecvRequest):
-#     logger.trace(f"Income request: {event.method_name}")
+DEFAULT_CONFIG: GrpcTransportConfig = {
+    "address": "127.0.0.1",
+    "port": 50051,
+    "max_message_size_kb": 4096,
+}
 
 
 class RawCodec(CodecBase):
