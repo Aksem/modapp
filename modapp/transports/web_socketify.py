@@ -67,7 +67,9 @@ class WebSocketifyTransport(BaseTransport):
             "/stream",
             {
                 "compression": CompressOptions.SHARED_COMPRESSOR,
-                "max_payload_length": self.config["max_message_size_kb"],
+                "max_payload_length": self.config.get(
+                    "max_message_size_kb", DEFAULT_CONFIG["max_message_size_kb"]
+                ),
                 "idle_timeout": 12,
                 # "open": ws_open,
                 # "message": ws_message,
