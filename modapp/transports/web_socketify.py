@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 import secrets
 from functools import partial
 from typing import TYPE_CHECKING
@@ -30,6 +31,10 @@ def socketify_app_run_async(app: App) -> None:
     if app._ws_factory is not None:
         app._ws_factory.populate()
 
+    # from app.loop.run
+    app.loop.started = True
+    app.loop.loop.call_soon(app.loop._keep_alive)
+
 
 class WebSocketifyTransport(BaseTransport):
     CONFIG_KEY = "web_socketify"
@@ -41,6 +46,10 @@ class WebSocketifyTransport(BaseTransport):
     ) -> None:
         super().__init__(config, converter)
         self.app: App | None = None
+        self._static_dirs: dict[str, Path] = {}
+
+    def host_static_dir(self, dir_path: Path, route: str) -> None:
+        self._static_dirs[route] = dir_path
 
     @override
     async def start(self, routes: RoutesDict) -> None:
@@ -77,6 +86,9 @@ class WebSocketifyTransport(BaseTransport):
             },
         )
 
+        for static_dir_route, static_dir_path in self._static_dirs.items():
+            self.app.static(static_dir_route, static_dir_path)
+
         port = self.config.get("port", DEFAULT_CONFIG["port"])
         assert isinstance(port, int), "Int expected to be an int"
         self.app.listen(
@@ -86,11 +98,14 @@ class WebSocketifyTransport(BaseTransport):
             ),
         )
         socketify_app_run_async(self.app)
-        # self.app.run()
 
     @override
     async def stop(self) -> None:
         if self.app is not None:
+            # from app.loop.run:
+            # clean up uvloop
+            self.app.loop.uv_loop.stop()
+
             self.app.close()
             self.app = None
         else:
