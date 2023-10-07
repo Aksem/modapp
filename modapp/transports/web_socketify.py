@@ -4,11 +4,12 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from typing_extensions import NotRequired, override
+from typing_extensions import override
 from socketify import App, CompressOptions
 
 from modapp.base_converter import BaseConverter
-from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.base_transport import BaseTransport
+from .web_socketify_config import WebSocketifyTransportConfig, DEFAULT_CONFIG
 
 # from modapp.errors import (
 #     BaseModappError,
@@ -23,14 +24,11 @@ if TYPE_CHECKING:
     from modapp.routing import RoutesDict
 
 
-class WebSocketifyTransportConfig(BaseTransportConfig):
-    port: NotRequired[int]
-
-
-DEFAULT_CONFIG: WebSocketifyTransportConfig = {
-    "port": 3000,
-    "max_message_size_kb": 4096,
-}
+def socketify_app_run_async(app: App) -> None:
+    if app._factory is not None:
+        app._factory.populate()
+    if app._ws_factory is not None:
+        app._ws_factory.populate()
 
 
 class WebSocketifyTransport(BaseTransport):
@@ -65,17 +63,17 @@ class WebSocketifyTransport(BaseTransport):
             "/auth", lambda req, res: res.end({"id": secrets.token_urlsafe(20)})
         )
         # TODO: configure websockets
-        # self.app.ws(
-        #     "/stream",
-        #     {
-        #         "compression": CompressOptions.SHARED_COMPRESSOR,
-        #         "max_payload_length": self.config["max_message_size_kb"],
-        #         "idle_timeout": 12,
-        #         "open": ws_open,
-        #         "message": ws_message,
-        #         "close": ws_close,
-        #     },
-        # )
+        self.app.ws(
+            "/stream",
+            {
+                "compression": CompressOptions.SHARED_COMPRESSOR,
+                "max_payload_length": self.config["max_message_size_kb"],
+                "idle_timeout": 12,
+                # "open": ws_open,
+                # "message": ws_message,
+                # "close": ws_close,
+            },
+        )
 
         port = self.config.get("port", DEFAULT_CONFIG["port"])
         assert isinstance(port, int), "Int expected to be an int"
@@ -85,7 +83,8 @@ class WebSocketifyTransport(BaseTransport):
                 f"Start web socketify server: localhost:{config.port}"
             ),
         )
-        self.app.run()
+        socketify_app_run_async(self.app)
+        # self.app.run()
 
     @override
     async def stop(self) -> None:

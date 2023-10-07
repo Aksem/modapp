@@ -9,10 +9,10 @@ from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
-from typing_extensions import NotRequired, override
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.base_transport import BaseTransport
 from modapp.errors import (
     BaseModappError,
     InvalidArgumentError,
@@ -21,21 +21,10 @@ from modapp.errors import (
 )
 from modapp.routing import Cardinality
 from modapp.types import Metadata
+from .grpc_config import GrpcTransportConfig, DEFAULT_CONFIG
 
 if TYPE_CHECKING:
     from modapp.routing import Route, RoutesDict
-
-
-class GrpcTransportConfig(BaseTransportConfig):
-    address: NotRequired[str]
-    port: NotRequired[int]
-
-
-DEFAULT_CONFIG: GrpcTransportConfig = {
-    "address": "127.0.0.1",
-    "port": 50051,
-    "max_message_size_kb": 4096,
-}
 
 
 class RawCodec(CodecBase):

@@ -3,23 +3,17 @@ from typing import AsyncIterator, Optional
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.base_transport import BaseTransport
 from modapp.errors import ServerError
 from modapp.routing import RoutesDict
-
-
-class InMemoryTransportConfig(BaseTransportConfig):
-    ...
-
-
-DEFAULT_CONFIG: InMemoryTransportConfig = {"max_message_size_kb": 4096}
+from .inmemory_config import InMemoryTransportConfig
 
 
 class InMemoryTransport(BaseTransport):
     CONFIG_KEY = "inmemory"
 
     def __init__(
-        self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None
+        self, config: InMemoryTransportConfig, converter: Optional[BaseConverter] = None
     ):
         super().__init__(config, converter)
         self.routes: Optional[RoutesDict] = None
