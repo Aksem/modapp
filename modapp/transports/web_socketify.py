@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 from typing_extensions import override
-from socketify import App, CompressOptions
+from socketify import App, CompressOptions, Request, Response
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
+from modapp.routing import Route
 from .web_socketify_config import WebSocketifyTransportConfig, DEFAULT_CONFIG
 
 # from modapp.errors import (
@@ -61,12 +62,15 @@ class WebSocketifyTransport(BaseTransport):
         self.app = App()
         for route_path, route in routes.items():
 
-            def route_handler(route, request, response) -> None:
-                response.end("{}")
+            async def route_handler(route: Route, response: Response, request: Request) -> None:
+                data = await response.get_data()
+                # TODO: if unary-stream, store it
+                result = await self.got_request(route=route, raw_data=data.getvalue(), meta={})
+                response.end(result)
 
-            self.app.post(
-                route_path.replace(".", "/"), handler=partial(route_handler, route)
-            )
+            http_route_path = route_path.replace(".", "/")
+            self.app.post(http_route_path, handler=partial(route_handler, route))
+            logger.trace(f"Registered http route {http_route_path}")
 
         self.app.post(
             "/auth", lambda req, res: res.end({"id": secrets.token_urlsafe(20)})

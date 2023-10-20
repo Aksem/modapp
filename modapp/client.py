@@ -29,9 +29,9 @@ class BaseChannel(ABC):
         self,
         route_path: str,
         request: BaseModel,
-        reply_cls: Type[BaseModel],
+        reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
-    ) -> BaseModel:
+    ) -> T:
         raise NotImplementedError()
 
     @abstractmethod
