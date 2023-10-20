@@ -159,7 +159,7 @@ async def start(config: Dict[str, Any], routes: Dict[str, Route]):
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "localhost", config["port"])
+    site = web.TCPSite(runner, "127.0.0.1", config["port"])
     await site.start()
-    logger.info("Start socketio server: localhost:" + str(config["port"]))
+    logger.info("Start socketio server: 127.0.0.1:" + str(config["port"]))
     return runner
