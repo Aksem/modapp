@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 from abc import ABC
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Coroutine, Optional, TypedDict, Union
 
 from loguru import logger
 
@@ -67,7 +67,7 @@ class BaseTransport(ABC):
         try:
             handler = route.get_request_handler(request_data, meta, stack)
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
-                reply = handler()
+                reply = await handler()
                 # modapp validates request handlers, trust it
                 assert isinstance(reply, BaseModel)
                 proto_reply = self.converter.model_to_raw(reply)
@@ -79,11 +79,11 @@ class BaseTransport(ABC):
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
 
                 async def handle_request(
-                    handler: Callable[..., AsyncIterator[BaseModel]],
+                    handler: Callable[..., Coroutine[Any, Any, AsyncIterator[BaseModel]]],
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:
-                    response_iterator = handler()
+                    response_iterator = await handler()
                     logger.debug(f"Response stream on {route.path} ready")
                     assert isinstance(
                         response_iterator, AsyncIterator

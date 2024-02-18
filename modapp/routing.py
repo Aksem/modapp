@@ -5,7 +5,7 @@ from collections import namedtuple
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, contextmanager
 from enum import Enum, unique
-from inspect import isgeneratorfunction, signature
+from inspect import isgeneratorfunction, signature, iscoroutinefunction
 from typing import TYPE_CHECKING, Coroutine, NamedTuple, ParamSpec, Callable
 
 from loguru import logger
@@ -85,7 +85,7 @@ class Route:
 
     def get_request_handler(
         self, request: RequestResponseType, meta: MetaType, stack: AsyncExitStack
-    ) -> Callable[..., RequestResponseType]:
+    ) -> Callable[..., Coroutine[Any, Any, RequestResponseType]]:
         handler_args: dict[str, Any] = {}
         try:
             handler_args.update(
@@ -114,7 +114,12 @@ class Route:
                 }
             )
 
-        return lambda: self.handler(request, **handler_args)
+        async def request_handler():
+            if iscoroutinefunction(self.handler):
+                return await self.handler(request, **handler_args)
+            else:
+                return self.handler(request, **handler_args)
+        return request_handler
 
 
 RoutesDict = dict[str, Route]
