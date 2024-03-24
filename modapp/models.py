@@ -1,7 +1,7 @@
 from typing import TypeVar
 
 from pydantic import BaseModel as PBaseModel
-from pydantic import ValidationError, validator
+from pydantic import ValidationError, field_validator
 from pydantic.networks import (
     AmqpDsn,
     AnyHttpUrl,
@@ -68,7 +68,7 @@ ModelType = TypeVar("ModelType", bound=BaseModel)
 __all__ = [
     "BaseModel",
     "ModelType",
-    "validator",
+    "field_validator",
     "ValidationError",
     # pydantic types
     "StrictStr",
