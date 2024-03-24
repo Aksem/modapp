@@ -19,6 +19,7 @@ from socketify import (
     Response,
     WebSocket,
     OpCode,
+    sendfile
 )
 
 from modapp.base_converter import BaseConverter
@@ -283,12 +284,33 @@ class WebSocketifyTransport(BaseTransport):
             response.write_status(404)
             response.end("Not found")
 
-        self.app.any("/*", unknown_path_handler)
-
-        for static_dir_route, static_dir_path in self._static_dirs.items():
-            self.app.static(static_dir_route, static_dir_path)
 
         port = self.config.get("port", DEFAULT_CONFIG["port"])
+
+        async def static_dir_index_handler(response: Response, request: Request, static_dir_path: Path) -> None:
+            # +1 for initial slash
+            url_in_dir = request.get_url()[len(static_dir_path.name) + 1:]
+            if url_in_dir in ['', '/']:
+                index_html_path = static_dir_path / 'index.html'
+                if index_html_path.exists():
+                    await sendfile(response, request, index_html_path)
+                    return
+            response.write_status(404)
+            response.end("Not found")
+
+        for static_dir_route, static_dir_path in self._static_dirs.items():
+            logger.info(f"Host static dir: localhost:{port}{static_dir_route}")
+            self.app.static(static_dir_route, static_dir_path)
+
+            async def _static_dir_index_handler(response: Response, request: Request) -> None:
+                await static_dir_index_handler(response, request, static_dir_path)
+
+            self.app.get(
+                static_dir_route,
+                _static_dir_index_handler
+            )
+
+        self.app.any("/*", unknown_path_handler)
         assert isinstance(port, int), "Int expected to be an int"
         self.app.listen(
             port,
