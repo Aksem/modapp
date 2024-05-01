@@ -99,7 +99,7 @@ class Route:
 
         if self.dependant is not None and self.dependant.dependencies is not None:
             # TODO: solve concurrently
-            def solve_dependency(
+            async def solve_dependency(
                 dependency: DependencyFunc, stack: AsyncExitStack
             ) -> Any:
                 if isgeneratorfunction(dependency):
@@ -107,14 +107,14 @@ class Route:
                     return stack.enter_context(cm)
                 elif isasyncgenfunction(dependency):
                     cm = asynccontextmanager(dependency)()  # TODO: dependency args
-                    return stack.enter_async_context(cm)
+                    return await stack.enter_async_context(cm)
                 else:
                     raise Exception()
 
             # TODO: recursive resolving with parameters support
             handler_args.update(
                 {
-                    str(dep.name): solve_dependency(dep.callable, stack)
+                    str(dep.name): await solve_dependency(dep.callable, stack)
                     for dep in self.dependant.dependencies
                 }
             )
