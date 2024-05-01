@@ -5,7 +5,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from .errors import ServerError
-from .models import BaseModel
+from .base_model import BaseModel
 from .routing import Route
 
 

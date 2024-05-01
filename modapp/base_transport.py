@@ -10,7 +10,7 @@ from loguru import logger
 from modapp.base_converter import BaseConverter
 from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 from modapp.routing import Cardinality, Route
 from modapp.types import Metadata
 
@@ -65,7 +65,7 @@ class BaseTransport(ABC):
         stack = AsyncExitStack()
 
         try:
-            handler = route.get_request_handler(request_data, meta, stack)
+            handler = await route.get_request_handler(request_data, meta, stack)
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
                 reply = await handler()
                 # modapp validates request handlers, trust it

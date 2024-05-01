@@ -16,7 +16,7 @@ from typing_extensions import override
 from modapp.base_converter import BaseConverter
 from modapp.base_validator import BaseValidator
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
-from modapp.models import BaseModel, ModelType
+from modapp.base_model import BaseModel, ModelType
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError

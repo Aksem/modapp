@@ -3,16 +3,16 @@ from __future__ import annotations
 import types
 from collections import namedtuple
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, contextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from enum import Enum, unique
-from inspect import isgeneratorfunction, signature, iscoroutinefunction
+from inspect import isasyncgenfunction, isgeneratorfunction, signature, iscoroutinefunction
 from typing import TYPE_CHECKING, Coroutine, NamedTuple, ParamSpec, Callable
 
 from loguru import logger
 from typing_extensions import Protocol
 
 from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 
 from .params import Depends, Meta
 
@@ -83,7 +83,7 @@ class Route:
             Dependant.from_depends_list(handler, dependencies) if dependencies else None
         )
 
-    def get_request_handler(
+    async def get_request_handler(
         self, request: RequestResponseType, meta: MetaType, stack: AsyncExitStack
     ) -> Callable[..., Coroutine[Any, Any, RequestResponseType]]:
         handler_args: dict[str, Any] = {}
@@ -105,6 +105,11 @@ class Route:
                 if isgeneratorfunction(dependency):
                     cm = contextmanager(dependency)()  # TODO: dependency args
                     return stack.enter_context(cm)
+                elif isasyncgenfunction(dependency):
+                    cm = asynccontextmanager(dependency)()  # TODO: dependency args
+                    return stack.enter_async_context(cm)
+                else:
+                    raise Exception()
 
             # TODO: recursive resolving with parameters support
             handler_args.update(
@@ -188,6 +193,7 @@ class APIRouter:
             handler_meta_kwargs=meta_kwargs,
             dependencies=dependencies if len(dependencies.keys()) > 0 else None,
         )
+        handler.__modapp_route__ = self._routes[route_meta.path]
 
     def add_route(self, route: Route) -> None:
         self._routes[route.path] = route
