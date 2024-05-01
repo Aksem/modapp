@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 import platform
-from typing import TYPE_CHECKING, Any, Coroutine
+from typing import TYPE_CHECKING, Any, Coroutine, Type
 
 from loguru import logger
 
+from modapp.base_converter import BaseConverter
 from modapp.routing import APIRouter, RouteMeta
 
 if TYPE_CHECKING:
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
     from modapp.types import DecoratedCallable
 
 
-def run_in_better_loop(coroutine: Callable[..., Coroutine[Any, Any, Any]]) -> None:
+def run_coroutine(coroutine: Callable[..., Coroutine[Any, Any, Any]], *args, **kwargs) -> None:
     import sys
 
     # uvloop doesn't support Windows yet
@@ -31,10 +33,16 @@ def run_in_better_loop(coroutine: Callable[..., Coroutine[Any, Any, Any]]) -> No
 
         if sys.version_info >= (3, 11):
             with asyncio.Runner(loop_factory=loop_lib.new_event_loop) as runner:
-                runner.run(coroutine())
+                runner.run(coroutine(*args, **kwargs))
         else:
             loop_lib.install()
-            asyncio.run(coroutine())
+            asyncio.run(coroutine(*args, **kwargs))
+
+
+@dataclass
+class CrossProcessConfig:
+    converter_by_transport: dict[Type[BaseTransport], BaseConverter] = field(default_factory=dict)
+    dependency_overrides: DependencyOverrides | None = None
 
 
 class Modapp:
@@ -43,6 +51,7 @@ class Modapp:
         transports: set[BaseTransport],
         config: dict[str, BaseTransportConfig] | None = None,
         dependency_overrides: DependencyOverrides | None = None,
+        cross_process_config_factory: Callable[[], CrossProcessConfig] | None = None
     ) -> None:
         self.transports = transports
         self.config: dict[str, BaseTransportConfig] = {}
@@ -50,6 +59,10 @@ class Modapp:
             self.config = config
         self.dependency_overrides = dependency_overrides
         self.router = APIRouter(dependency_overrides=dependency_overrides)
+        self.cross_process_config_factory = cross_process_config_factory
+        
+        for transport in self.transports:
+            transport.cross_process_config_factory = cross_process_config_factory
 
     def run(self) -> None:
         try:

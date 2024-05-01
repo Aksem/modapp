@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures.process as process
 from functools import partial
-from typing import TYPE_CHECKING, Any, AsyncIterator, cast
+import importlib
+import os
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, cast
 
 from grpclib.const import Handler
 from grpclib.const import Status as GrpcStatus
@@ -23,6 +25,7 @@ from modapp.errors import (
     ServerError,
 )
 from modapp.routing import Cardinality
+from modapp.server import CrossProcessConfig
 from .grpc_config import GrpcTransportConfig, DEFAULT_CONFIG
 
 if TYPE_CHECKING:
@@ -95,12 +98,30 @@ async def request_handler_async(
         await stream.send_message(response)
 
 
+def import_module_member(module: str, member_name: str) -> Any:
+    module_obj = importlib.import_module(module)
+    return getattr(module_obj, member_name)
+
+
 def mp_execute_handler(
-    route: Route,
+    route_module: str,
+    route_func_name: str,
     request: bytes,
-    converter: BaseConverter,
+    cross_process_config_factory_module: str,
+    cross_process_config_factory_name: str,
     response_queue: async_queue.AsyncQueue,
 ):
+    logger.trace(f"Running {route_module}.{route_func_name} in process {os.getpid()}")
+    route_func = import_module_member(route_module, route_func_name)
+    route = route_func.__modapp_route__
+
+    cross_process_config_factory = import_module_member(
+        cross_process_config_factory_module, cross_process_config_factory_name
+    )
+    cross_process_config = cross_process_config_factory()
+    assert isinstance(cross_process_config, CrossProcessConfig)
+    converter = cross_process_config.converter_by_transport[GrpcTransport]
+
     asyncio.run(mp_request_handler_async(route, request, converter, response_queue))
 
 
@@ -123,7 +144,9 @@ async def handler_callback(
     route: Route,
     converter: BaseConverter,
     executor: process.ProcessPoolExecutor | None,
+    cross_process_config_factory: Callable[[], CrossProcessConfig] | None,
 ):
+    logger.trace("Got request")
     try:
         # TODO: support of reading stream, not only one message
         request = await stream.recv_message()
@@ -139,12 +162,17 @@ async def handler_callback(
             get_from_queue_and_send(response_queue, stream)
         )
         try:
+            logger.trace(
+                f"Executor processes: {executor._processes.keys()}, count = {len(executor._processes)}"
+            )
             await loop.run_in_executor(
                 executor,
                 mp_execute_handler,
-                route,
+                route.handler.__module__,
+                route.handler.__name__,
                 request,
-                converter,
+                cross_process_config_factory.__module__ if cross_process_config_factory is not None else None,
+                cross_process_config_factory.__name__ if cross_process_config_factory is not None else None,
                 response_queue,
             )
             response_queue.put(async_queue.QueueEnd())
@@ -174,10 +202,12 @@ class HandlerStorage:
         routes: RoutesDict,
         converter: BaseConverter,
         executor: process.ProcessPoolExecutor | None,
+        cross_process_config_factory: Callable[[], CrossProcessConfig] | None = None,
     ) -> None:
         self.routes = routes
         self.converter = converter
         self.executor = executor
+        self.cross_process_config_factory = cross_process_config_factory
 
     def __mapping__(self) -> dict[str, Handler]:
         result: dict[str, Handler] = {}
@@ -187,6 +217,7 @@ class HandlerStorage:
                 route=route,
                 converter=self.converter,
                 executor=self.executor,
+                cross_process_config_factory=self.cross_process_config_factory,
             )
             new_handler = Handler(
                 partial_handler_callback,
@@ -216,7 +247,9 @@ class GrpcTransport(BaseTransport):
             self.executor = process.ProcessPoolExecutor(max_workers=max_workers)
         else:
             self.executor = None
-        handler_storage = HandlerStorage(routes, self.converter, self.executor)
+        handler_storage = HandlerStorage(
+            routes, self.converter, self.executor, self.cross_process_config_factory
+        )
         self.server = Server([handler_storage], codec=RawCodec())
 
         # listen(self.server, RecvRequest, recv_request)

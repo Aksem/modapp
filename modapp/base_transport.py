@@ -12,6 +12,7 @@ from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.models import BaseModel
 from modapp.routing import Cardinality, Route
+from modapp.server import CrossProcessConfig
 from modapp.types import Metadata
 
 if TYPE_CHECKING:
@@ -104,6 +105,7 @@ class BaseTransport(ABC):
     ):
         self.config = config
         self.converter = converter if converter is not None else get_default_converter()
+        self.cross_process_config_factory: Callable[[], CrossProcessConfig] | None = None
 
     async def start(self, routes: RoutesDict) -> None:
         raise NotImplementedError()
