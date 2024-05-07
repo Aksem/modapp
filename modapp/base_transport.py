@@ -69,7 +69,6 @@ class BaseTransport(ABC):
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
                 reply = await handler()
                 # modapp validates request handlers, trust it
-                assert isinstance(reply, BaseModel)
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
