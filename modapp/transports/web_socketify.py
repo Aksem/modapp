@@ -321,7 +321,7 @@ class WebSocketifyTransport(BaseTransport):
         socketify_app_run_async(self.app)
 
     @override
-    async def stop(self) -> None:
+    def stop(self) -> None:
         if self.app is not None:
             # from app.loop.run:
             # clean up uvloop

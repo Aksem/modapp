@@ -23,7 +23,7 @@ class InMemoryTransport(BaseTransport):
         self.routes = routes
 
     @override
-    async def stop(self) -> None:
+    def stop(self) -> None:
         self.routes = None
 
     async def handle_request(

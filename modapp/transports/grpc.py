@@ -141,7 +141,7 @@ class GrpcTransport(BaseTransport):
         logger.info(f"Start grpc server: {address}:{port}")
 
     @override
-    async def stop(self) -> None:
+    def stop(self) -> None:
         if self.server is not None:
             self.server.close()
             self.server = None

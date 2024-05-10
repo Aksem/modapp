@@ -36,7 +36,7 @@ class BaseTransport(ABC):
     async def start(self, routes: RoutesDict) -> None:
         raise NotImplementedError()
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         raise NotImplementedError()
 
     # TODO: AsyncIterator in raw_data type

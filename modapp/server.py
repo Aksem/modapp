@@ -72,16 +72,10 @@ class Modapp:
         logger.info("Server has started")
 
     def stop(self) -> None:
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(self.stop_async())
-
-    async def stop_async(self) -> None:
-        await asyncio.gather(*[transport.stop() for transport in self.transports])
+        # run API is async, but stop is sync, because using asyncio in except and finally blocks
+        # on app end (e.g. after getting SIGINT) is quite tricky.
+        for transport in self.transports:
+            transport.stop()
         logger.info("Server stop")
 
     def endpoint(
