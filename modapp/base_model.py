@@ -1,13 +1,13 @@
 
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import TypeVar, ClassVar
 
 
 @dataclass
 class BaseModel:
-    __modapp_path__: str = ""
+    __modapp_path__: ClassVar[str]
 
-    model_config = {}
+    model_config: ClassVar[dict[str, str]] = {}
 
 
 ModelType = TypeVar("ModelType", bound=BaseModel)
