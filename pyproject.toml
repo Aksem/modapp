@@ -12,8 +12,8 @@ loguru = "^0.7.0"
 pydantic = "^2.0"
 uvloop = { version = "^0.17.0", markers = "sys_platform != 'win32'", optional = true }
 winloop = { version = "^0.0.8", markers = "sys_platform == 'win32'", optional = true }
-grpclib = { version = "^0.4.5", optional = true }
-googleapis-common-protos = { version = "^1.59.1", optional = true }
+grpclib = { version = "^0.4.7", optional = true }
+googleapis-common-protos = { version = "^1.63.0", optional = true }
 socketify = { version = "^0.0.27", optional = true }
 orjson = {version = "^3.10.3", optional = true}
 aiohttp = {extras = ["speedups"], version = "^3.9.5", optional = true}
