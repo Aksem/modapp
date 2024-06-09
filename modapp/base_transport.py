@@ -3,11 +3,21 @@ from __future__ import annotations
 import traceback
 from abc import ABC
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Coroutine, Optional, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Optional,
+    TypedDict,
+    Union,
+)
 
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
+from modapp.base_validator import BaseValidator
 from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.base_model import BaseModel
@@ -28,9 +38,13 @@ class BaseTransport(ABC):
     CONFIG_KEY: str
 
     def __init__(
-        self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None
+        self,
+        config: BaseTransportConfig,
+        validator: BaseValidator,
+        converter: Optional[BaseConverter] = None,
     ):
         self.config = config
+        self.validator = validator
         self.converter = converter if converter is not None else get_default_converter()
 
     async def start(self, routes: RoutesDict) -> None:
@@ -58,7 +72,7 @@ class BaseTransport(ABC):
 
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
-            request_data=lambda: request_data.model_dump_json(indent=2),
+            request_data=lambda: self.validator.model_to_dict(request_data),
         )
 
         # TODO: validate if there is validator?
@@ -72,13 +86,15 @@ class BaseTransport(ABC):
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
-                    reply_str=lambda: reply.model_dump_json(indent=2),
+                    reply_str=lambda: self.validator.model_to_dict(reply),
                 )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
 
                 async def handle_request(
-                    handler: Callable[..., Coroutine[Any, Any, AsyncIterator[BaseModel]]],
+                    handler: Callable[
+                        ..., Coroutine[Any, Any, AsyncIterator[BaseModel]]
+                    ],
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:

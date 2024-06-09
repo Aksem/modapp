@@ -29,7 +29,7 @@ class AioHttpChannel(BaseChannel):
         async with aiohttp.ClientSession() as session:
             # TODO: check route path
             async with session.post(
-                self.server_address + route_path, data=raw_data
+                self.server_address + route_path.replace('.', '/').lower(), data=raw_data
             ) as response:
                 raw_reply = await response.read()
 

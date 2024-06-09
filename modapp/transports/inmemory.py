@@ -1,5 +1,6 @@
 from typing import AsyncIterator, Optional
 
+from modapp.base_validator import BaseValidator
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
@@ -13,9 +14,9 @@ class InMemoryTransport(BaseTransport):
     CONFIG_KEY = "inmemory"
 
     def __init__(
-        self, config: InMemoryTransportConfig, converter: Optional[BaseConverter] = None
+        self, config: InMemoryTransportConfig, validator: BaseValidator, converter: Optional[BaseConverter] = None
     ):
-        super().__init__(config, converter)
+        super().__init__(config, validator, converter)
         self.routes: Optional[RoutesDict] = None
 
     @override

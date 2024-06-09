@@ -24,6 +24,7 @@ from socketify import (
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
+from modapp.base_validator import BaseValidator
 from modapp.routing import Route, Cardinality
 from modapp.errors import (
     InvalidArgumentError,
@@ -50,7 +51,7 @@ def socketify_app_run_async(app: App) -> None:
 # TODO: return when issue socketify#144 is resolved
 # def _prepare_response(response: Response, request: Request, data=None) -> None:
 #     response.write_header("Access-Control-Allow-Origin", "http://localhost:5173")
-#     response.write_header("Access-Control-Allow-Headers", "Connection-Id, Request-Id")
+#     response.write_header("Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type")
 #     return data
 #     # return response
 
@@ -80,9 +81,10 @@ class WebSocketifyTransport(BaseTransport):
     def __init__(
         self,
         config: WebSocketifyTransportConfig,
+        validator: BaseValidator,
         converter: BaseConverter | None = None,
     ) -> None:
-        super().__init__(config, converter)
+        super().__init__(config, validator, converter)
         self.app: App | None = None
         self._static_dirs: dict[str, Path] = {}
         self._websockets_by_conn_id: dict[str, WebSocket] = {}
@@ -140,12 +142,13 @@ class WebSocketifyTransport(BaseTransport):
                     "Access-Control-Allow-Origin", "http://localhost:5173"
                 )
                 response.write_header(
-                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id"
+                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
                 )
                 # tmp repeated end
 
                 if route.proto_cardinality == Cardinality.UNARY_UNARY:
                     # try:
+                    # TODO: handle errors
                     result = await self.got_request(
                         route=route, raw_data=data.getvalue(), meta={}
                     )
@@ -153,7 +156,7 @@ class WebSocketifyTransport(BaseTransport):
                     #     "Content-Type", "application/octet-stream"
                     # )
                     # temporary send base64 until we know how to create correct Uint8Array from binary data in js
-                    response.end(base64.b64encode(result))
+                    response.end(result)  # base64.b64encode(result)
                     return
                     # except BaseModappError as modapp_error:
                     #     logger.trace(f"Http request handling error: {modapp_error}")
@@ -233,7 +236,7 @@ class WebSocketifyTransport(BaseTransport):
                     "Access-Control-Allow-Origin", "http://localhost:5173"
                 )
                 response.write_header(
-                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id"
+                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
                 )
                 # tmp repeated end
                 # here should be end_without_body, but for unknown reason it is very slow
@@ -250,7 +253,7 @@ class WebSocketifyTransport(BaseTransport):
                 "Access-Control-Allow-Origin", "http://localhost:5173"
             )
             response.write_header(
-                "Access-Control-Allow-Headers", "Connection-Id, Request-Id"
+                "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
             )
             # tmp repeated end
             response.end({"id": secrets.token_urlsafe(20)})
@@ -277,7 +280,7 @@ class WebSocketifyTransport(BaseTransport):
             #     "Access-Control-Allow-Origin", "http://localhost:5173"
             # )
             # response.write_header(
-            #     "Access-Control-Allow-Headers", "Connection-Id, Request-Id"
+            #     "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
             # )
             # tmp repeated end
             logger.error(f"Unknown path: {request.get_url()}")
