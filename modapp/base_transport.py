@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import traceback
 from abc import ABC
 from contextlib import AsyncExitStack
@@ -72,7 +73,7 @@ class BaseTransport(ABC):
 
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
-            request_data=lambda: self.validator.model_to_dict(request_data),
+            request_data=lambda: json.dumps(self.validator.model_to_dict(request_data), indent=4, ensure_ascii=False),
         )
 
         # TODO: validate if there is validator?
@@ -86,7 +87,7 @@ class BaseTransport(ABC):
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
-                    reply_str=lambda: self.validator.model_to_dict(reply),
+                    reply_str=lambda: json.dumps(self.validator.model_to_dict(reply), indent=4, ensure_ascii=False),
                 )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
