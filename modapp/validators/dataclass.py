@@ -19,7 +19,7 @@ class DataclassValidator(BaseValidator):
         except Exception as error:  # TODO
             raise InvalidArgumentError(
                 {}
-                errors_by_fields=# {str(error["loc"][0]): error["msg"] for error in error.errors()}
+                # errors_by_fields=# {str(error["loc"][0]): error["msg"] for error in error.errors()}
             )
 
     @override
