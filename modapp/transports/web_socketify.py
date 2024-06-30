@@ -5,7 +5,6 @@ Dev Notes:
 """
 from __future__ import annotations
 from pathlib import Path
-import base64
 import secrets
 from functools import partial
 from typing import TYPE_CHECKING, AsyncIterator
