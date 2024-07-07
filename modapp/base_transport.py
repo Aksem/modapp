@@ -18,7 +18,6 @@ from typing import (
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
-from modapp.base_validator import BaseValidator
 from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.base_model import BaseModel
@@ -41,11 +40,9 @@ class BaseTransport(ABC):
     def __init__(
         self,
         config: BaseTransportConfig,
-        validator: BaseValidator,
         converter: Optional[BaseConverter] = None,
     ):
         self.config = config
-        self.validator = validator
         self.converter = converter if converter is not None else get_default_converter()
 
     async def start(self, routes: RoutesDict) -> None:
@@ -73,21 +70,21 @@ class BaseTransport(ABC):
 
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
-            request_data=lambda: json.dumps(self.validator.model_to_dict(request_data), indent=4, ensure_ascii=False),
+            request_data=lambda: json.dumps(request_data.to_dict(), indent=4, ensure_ascii=False),
         )
 
-        # TODO: validate if there is validator?
         stack = AsyncExitStack()
 
         try:
             handler = await route.get_request_handler(request_data, meta, stack)
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
                 reply = await handler()
+                assert isinstance(reply, BaseModel)
                 # modapp validates request handlers, trust it
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
-                    reply_str=lambda: json.dumps(self.validator.model_to_dict(reply), indent=4, ensure_ascii=False),
+                    reply_str=lambda: json.dumps(reply.to_dict(), indent=4, ensure_ascii=False),
                 )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:

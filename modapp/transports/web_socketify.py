@@ -23,7 +23,6 @@ from socketify import (
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
-from modapp.base_validator import BaseValidator
 from modapp.routing import Route, Cardinality
 from modapp.errors import (
     InvalidArgumentError,
@@ -80,10 +79,9 @@ class WebSocketifyTransport(BaseTransport):
     def __init__(
         self,
         config: WebSocketifyTransportConfig,
-        validator: BaseValidator,
         converter: BaseConverter | None = None,
     ) -> None:
-        super().__init__(config, validator, converter)
+        super().__init__(config, converter)
         self.app: App | None = None
         self._static_dirs: dict[str, Path] = {}
         self._websockets_by_conn_id: dict[str, WebSocket] = {}

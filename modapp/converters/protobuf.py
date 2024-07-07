@@ -13,7 +13,6 @@ from loguru import logger
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.base_validator import BaseValidator
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
 from modapp.base_model import BaseModel, ModelType
 
@@ -63,12 +62,10 @@ def model_field_type_matches_proto_field(
 class ProtobufConverter(BaseConverter):
     def __init__(
         self,
-        protos: dict[str, Type[protobuf_message.Message]],
-        validator: BaseValidator,
+        protos: dict[str, Type[protobuf_message.Message]]
     ) -> None:
         super().__init__()
         self.protos = protos
-        self.validator = validator
         # self.resolved_protos: dict[str, Type[protobuf_message.Message]] = {}
 
     @override
@@ -82,13 +79,11 @@ class ProtobufConverter(BaseConverter):
 
         proto_instance = proto_cls.FromString(raw)
         model_dict = self.__proto_obj_to_dict(proto_instance)
-        return self.validator.validate_and_construct_from_dict(
-            model_dict=model_dict, model_cls=model_cls
-        )
+        return model_cls.validate_and_construct_from_dict(model_dict=model_dict)
 
     @override
     def model_to_raw(self, model: BaseModel) -> bytes:
-        model_dict = self.validator.model_to_dict(model=model)
+        model_dict = model.to_dict()
         proto_obj = self.__dict_to_proto_obj(
             model_dict=model_dict,
             model_obj=model,
@@ -198,7 +193,9 @@ class ProtobufConverter(BaseConverter):
                 model_dict[field.name] = proto_obj.__getattribute__(field.name)
         return model_dict
 
-    def __proto_value_to_py_value(self, value: protobuf_message.Message | str | int | bool | float):
+    def __proto_value_to_py_value(
+        self, value: protobuf_message.Message | str | int | bool | float
+    ):
         if type(value) in [str, int, float, bool]:
             return value
         elif isinstance(value, protobuf_message.Message):

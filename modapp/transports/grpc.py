@@ -9,7 +9,6 @@ from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
-from modapp.base_validator import BaseValidator
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
@@ -113,9 +112,9 @@ class GrpcTransport(BaseTransport):
     CONFIG_KEY = "grpc"
 
     def __init__(
-        self, config: GrpcTransportConfig, validator: BaseValidator, converter: BaseConverter | None = None
+        self, config: GrpcTransportConfig, converter: BaseConverter | None = None
     ) -> None:
-        super().__init__(config, validator, converter)
+        super().__init__(config, converter)
         self.server: Server | None = None
 
     @override
