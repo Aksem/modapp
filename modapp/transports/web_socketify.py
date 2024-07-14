@@ -3,6 +3,7 @@ Dev Notes:
 - if at least one header is added to response, status code will be successful 200, not 4xx/5xx.
   See: https://github.com/cirospaciari/socketify.py/issues/144
 """
+
 from __future__ import annotations
 from pathlib import Path
 import secrets
@@ -18,7 +19,7 @@ from socketify import (
     Response,
     WebSocket,
     OpCode,
-    sendfile
+    sendfile,
 )
 
 from modapp.base_converter import BaseConverter
@@ -46,31 +47,15 @@ def socketify_app_run_async(app: App) -> None:
     app.loop.loop.call_soon(app.loop._keep_alive)
 
 
-# TODO: return when issue socketify#144 is resolved
-# def _prepare_response(response: Response, request: Request, data=None) -> None:
-#     response.write_header("Access-Control-Allow-Origin", "http://localhost:5173")
-#     response.write_header("Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type")
-#     return data
-#     # return response
-
-
-# TODO: return when issue socketify#144 is resolved
-# def modapp_error_to_http(
-#     modapp_error: BaseModappError, converter: BaseConverter, response: Response
-# ) -> None:
-#     if isinstance(modapp_error, NotFoundError):
-#         response.write_status(404).end("Not found")
-#         return
-#     elif isinstance(modapp_error, InvalidArgumentError):
-#         response.write_status(422)
-#         response.end(converter.error_to_raw(modapp_error))
-#         return
-#     elif isinstance(modapp_error, ServerError):
-#         # does the same as return statement below, but shows explicitly mapping of ServerError to
-#         # http error
-#         response.write_status(500).end("Server error")
-#         return
-#     response.write_status(500).end("Internal error")
+def _add_cors_headers_to_response(
+    response: Response, cors_allow: str | None
+) -> Response:
+    if cors_allow is not None:
+        response.write_header("Access-Control-Allow-Origin", cors_allow)
+        response.write_header(
+            "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
+        )
+    return response
 
 
 class WebSocketifyTransport(BaseTransport):
@@ -134,52 +119,22 @@ class WebSocketifyTransport(BaseTransport):
                 route: Route, response: Response, request: Request
             ) -> None:
                 data = await response.get_data()
-                # tmp repeated
-                response.write_header(
-                    "Access-Control-Allow-Origin", "http://localhost:5173"
-                )
-                response.write_header(
-                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
-                )
-                # tmp repeated end
+                # NOTE: if we explicitly set status, it should be done before headers:
+                # https://github.com/cirospaciari/socketify.py/issues/144
 
                 if route.proto_cardinality == Cardinality.UNARY_UNARY:
-                    # try:
-                    # TODO: handle errors
                     result = await self.got_request(
                         route=route, raw_data=data.getvalue(), meta={}
                     )
+                    # TODO: content type
                     # response.write_header(
                     #     "Content-Type", "application/octet-stream"
                     # )
-                    # temporary send base64 until we know how to create correct Uint8Array from binary data in js
-                    response.end(result)  # base64.b64encode(result)
+                    _add_cors_headers_to_response(
+                        response,
+                        self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                    ).end(result)
                     return
-                    # except BaseModappError as modapp_error:
-                    #     logger.trace(f"Http request handling error: {modapp_error}")
-                    #     # modapp_error_to_http(
-                    #     #     modapp_error, self.converter, _prepare_response(response)
-                    #     # )
-
-                    #     # if isinstance(modapp_error, NotFoundError):
-                    #     #     response.write_status(404).end("Not found")
-                    #     #     return
-                    #     # elif isinstance(modapp_error, InvalidArgumentError):
-                    #     #     response.write_status(422)
-                    #     #     response.end(self.converter.error_to_raw(modapp_error))
-                    #     #     return
-                    #     # elif isinstance(modapp_error, ServerError):
-                    #     #     # does the same as return statement below, but shows explicitly mapping of ServerError to
-                    #     #     # http error
-                    #     #     response.write_status(500).end("Server error")
-                    #     #     return
-                    #     # response.write_status(500).end("Internal error")
-
-                    #     return
-                    # except Exception as e:
-                    #     logger.exception(e)
-                    #     response.write_status(500).end("Internal error")
-                    #     return
                 elif route.proto_cardinality == Cardinality.UNARY_STREAM:
                     conn_id = request.get_header("connection-id")
                     if not isinstance(conn_id, str):
@@ -219,7 +174,10 @@ class WebSocketifyTransport(BaseTransport):
                     self._send_stream_responses_in_ws(
                         stream=response_stream, ws=ws, request_id=request_id
                     )
-                    response.write_status(204).end_without_body()
+                    _add_cors_headers_to_response(
+                        response.write_status(204),
+                        self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                    ).end_without_body()
                     # TODO: how to stop on both ends?
                 raise NotImplementedError()
                 # TODO: other cardinalities
@@ -228,32 +186,19 @@ class WebSocketifyTransport(BaseTransport):
             self.app.post(http_route_path, handler=partial(route_handler, route))
 
             def options_handler(response: Response, request: Request) -> None:
-                # tmp repeated
-                response.write_header(
-                    "Access-Control-Allow-Origin", "http://localhost:5173"
-                )
-                response.write_header(
-                    "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
-                )
-                # tmp repeated end
                 # here should be end_without_body, but for unknown reason it is very slow
-                response.write_header("Allow", "OPTIONS, POST").write_status(200).end(
-                    ""
-                )
+                _add_cors_headers_to_response(
+                    response.write_status(200).write_header("Allow", "OPTIONS, POST"),
+                    self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                ).end("")
 
             self.app.options(http_route_path, options_handler)
             logger.trace(f"Registered http route {http_route_path}")
 
         def connect_handler(response: Response, request: Request) -> None:
-            # tmp repeated
-            response.write_header(
-                "Access-Control-Allow-Origin", "http://localhost:5173"
-            )
-            response.write_header(
-                "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
-            )
-            # tmp repeated end
-            response.end({"id": secrets.token_urlsafe(20)})
+            _add_cors_headers_to_response(
+                response, self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"])
+            ).end({"id": secrets.token_urlsafe(20)})
 
         self.app.post("/connect", connect_handler)
         # TODO: configure websockets
@@ -272,26 +217,19 @@ class WebSocketifyTransport(BaseTransport):
         )
 
         def unknown_path_handler(response: Response, request: Request) -> None:
-            # tmp repeated
-            # response.write_header(
-            #     "Access-Control-Allow-Origin", "http://localhost:5173"
-            # )
-            # response.write_header(
-            #     "Access-Control-Allow-Headers", "Connection-Id, Request-Id, Content-Type"
-            # )
-            # tmp repeated end
             logger.error(f"Unknown path: {request.get_url()}")
             response.write_status(404)
             response.end("Not found")
 
-
         port = self.config.get("port", DEFAULT_CONFIG["port"])
 
-        async def static_dir_index_handler(response: Response, request: Request, static_dir_path: Path) -> None:
+        async def static_dir_index_handler(
+            response: Response, request: Request, static_dir_path: Path
+        ) -> None:
             # +1 for initial slash
-            url_in_dir = request.get_url()[len(static_dir_path.name) + 1:]
-            if url_in_dir in ['', '/']:
-                index_html_path = static_dir_path / 'index.html'
+            url_in_dir = request.get_url()[len(static_dir_path.name) + 1 :]
+            if url_in_dir in ["", "/"]:
+                index_html_path = static_dir_path / "index.html"
                 if index_html_path.exists():
                     await sendfile(response, request, index_html_path)
                     return
@@ -302,13 +240,12 @@ class WebSocketifyTransport(BaseTransport):
             logger.info(f"Host static dir: localhost:{port}{static_dir_route}")
             self.app.static(static_dir_route, static_dir_path)
 
-            async def _static_dir_index_handler(response: Response, request: Request) -> None:
+            async def _static_dir_index_handler(
+                response: Response, request: Request
+            ) -> None:
                 await static_dir_index_handler(response, request, static_dir_path)
 
-            self.app.get(
-                static_dir_route,
-                _static_dir_index_handler
-            )
+            self.app.get(static_dir_route, _static_dir_index_handler)
 
         self.app.any("/*", unknown_path_handler)
         assert isinstance(port, int), "Int expected to be an int"
