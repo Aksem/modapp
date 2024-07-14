@@ -60,7 +60,7 @@ from modapp.errors import InvalidArgumentError
 from modapp.base_model import BaseModel
 
 
-class PydanticModel(BaseModel, PydanticBaseModel):
+class PydanticModel(PydanticBaseModel, BaseModel):
     dump_options: dict[str, Any] = {}
 
     @override

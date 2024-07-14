@@ -9,9 +9,12 @@ class BaseModel:
     __modapp_path__: ClassVar[str]
 
     __model_config__: ClassVar[dict[str, str]] = {}
-    
-    @abstractmethod
+
+    def __init__(self, *args, **kwargs) -> None:
+        ...
+
     @classmethod
+    @abstractmethod
     def validate_and_construct_from_dict(
         cls, model_dict: dict[str, Any]
     ) -> Self:
