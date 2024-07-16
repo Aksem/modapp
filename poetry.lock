@@ -2367,14 +2367,14 @@ files = [
 
 [[package]]
 name = "socketify"
-version = "0.0.28"
+version = "0.0.27"
 description = "Bringing WebSockets, Http/Https High Performance servers for PyPy3 and Python3"
 optional = true
 python-versions = ">=3.8"
 files = [
-    {file = "socketify-0.0.28-cp311-cp311-any.whl", hash = "sha256:f84b5e04b587d2a9d1af54e71579a516fc3cba171cb5cd06bde836519ac1fa76"},
-    {file = "socketify-0.0.28-pp39-pypy39_pp73-any.whl", hash = "sha256:ef3289e0874c250ac72c82e5f8075c614a1ec4e45dc7029dc49212007015d709"},
-    {file = "socketify-0.0.28.tar.gz", hash = "sha256:2346c2f65c90edc5dd90ce04309507dc7b87117b5d10ff5894919f4c632b244e"},
+    {file = "socketify-0.0.27-cp311-cp311-any.whl", hash = "sha256:a88f288fffa63cb49ad815d6577294b9ad56ae73ac7d65f558343739a25b185b"},
+    {file = "socketify-0.0.27-pp39-pypy39_pp73-any.whl", hash = "sha256:8d1afd42d17be2b39aa575d49d8b55906793c11d2ebcae13d21ec620c6783e50"},
+    {file = "socketify-0.0.27.tar.gz", hash = "sha256:5ca5793347712090522a568dc50f9c58c1cb293fe57f19d3b8fd3ce31c7bd990"},
 ]
 
 [package.dependencies]
@@ -2667,4 +2667,4 @@ web-socketify = ["socketify"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "6160152de36a2a29ede00a35b8b85d7e3f3dd18a957b68fcd6fb669a0242ba04"
+content-hash = "a453523fb90b8180523863e5aed90a89aeef2c2939d43489d99e30a306cc2243"
