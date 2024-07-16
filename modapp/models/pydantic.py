@@ -61,7 +61,7 @@ from modapp.base_model import BaseModel
 
 
 class PydanticModel(PydanticBaseModel, BaseModel):
-    dump_options: dict[str, Any] = {}
+    __dump_options__: dict[str, Any] = {}
 
     @override
     @classmethod
@@ -77,7 +77,7 @@ class PydanticModel(PydanticBaseModel, BaseModel):
 
     @override
     def to_dict(self) -> dict[str, Any]:
-        return self.model_dump(**self.dump_options)
+        return self.model_dump(**self.__dump_options__)
 
 
 __all__ = [
