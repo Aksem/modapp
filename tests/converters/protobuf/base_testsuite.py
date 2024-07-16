@@ -13,9 +13,8 @@ from google.protobuf.internal import enum_type_wrapper
 from grpc_tools import protoc
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from modapp.models import ModelType
+from modapp.base_model import ModelType
 from modapp.converters.protobuf import ProtobufConverter
-from modapp.validators.pydantic import PydanticValidator
 import tests.converters.protobuf.data as data
 
 
@@ -84,9 +83,7 @@ class ProtobufConverterBaseTestSuite:
             data.message_with_scalars_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.scalars.MessageWithScalars"
         ](
@@ -141,9 +138,7 @@ class ProtobufConverterBaseTestSuite:
             data.message_with_enum_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.enum_test.MessageWithEnum"
         ](
@@ -172,9 +167,7 @@ class ProtobufConverterBaseTestSuite:
             data.message_to_test_defaults_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.defaults.MessageToTestDefaults"
         ]()
@@ -213,9 +206,7 @@ class ProtobufConverterBaseTestSuite:
             data.nested_messages_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         level3_proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.nested_messages.MessageLevel3"
         ](result="success")
@@ -251,9 +242,7 @@ class ProtobufConverterBaseTestSuite:
             data.message_with_scalar_repeated_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.scalar_repeated.MessageWithScalarRepeated"
         ](integer_repeated=[56, -223, 91, 4412])
@@ -278,9 +267,7 @@ class ProtobufConverterBaseTestSuite:
             data.message_repeated_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.message_repeated.MessageWithMessageRepeated"
         ](
@@ -317,9 +304,7 @@ class ProtobufConverterBaseTestSuite:
             data.nested_message_repeated_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.nested_message_repeated.MessageWithNestedMessageRepeated"
         ](
@@ -376,9 +361,7 @@ class ProtobufConverterBaseTestSuite:
             data.one_of_scalars_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.one_of_scalars.MessageToTestOneOfScalars"
         ](str_field="string in one field", double_field=9514.73)
@@ -403,9 +386,7 @@ class ProtobufConverterBaseTestSuite:
             data.one_of_defaults_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.one_of_defaults.MessageToTestOneOfDefaults"
         ]()
@@ -430,9 +411,7 @@ class ProtobufConverterBaseTestSuite:
             data.one_of_nested_messages_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.one_of_nested_messages.MessageToTestOneOfNestedMessages"
         ](
@@ -489,9 +468,7 @@ class ProtobufConverterBaseTestSuite:
             data.test_timestamp_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.test_timestamp.MessageWithTimestamp"
         ](created_at=Timestamp(seconds=1692002513, nanos=585000000))
@@ -525,9 +502,7 @@ class ProtobufConverterBaseTestSuite:
             data.test_map_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         proto_instance = generated_protos[
             "modapp.tests.converters.protobuf.test_map.MessageWithMap"
         ](countries_names={"ua": "Ukraine", "at": "Austria", "us": "United States"})
@@ -552,9 +527,7 @@ class ProtobufConverterBaseTestSuite:
             data.test_nested_map_proto_src,
             tmp_path,
         )
-        converter = ProtobufConverter(
-            protos=generated_protos, validator=PydanticValidator()
-        )
+        converter = ProtobufConverter(protos=generated_protos)
         # proto instance
         city_kyiv_proto = generated_protos[
             "modapp.tests.converters.protobuf.test_nested_map.CityInfo"

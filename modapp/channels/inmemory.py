@@ -4,7 +4,7 @@ from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.client import BaseChannel
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 from modapp.transports.inmemory import InMemoryTransport
 
 T = TypeVar("T", bound=BaseModel)

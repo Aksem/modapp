@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 
 
 class MessageWithScalars(BaseModel):

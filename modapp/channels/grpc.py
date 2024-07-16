@@ -14,7 +14,7 @@ from modapp.errors import (
     NotFoundError,
     ServerError,
 )
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
