@@ -1,4 +1,10 @@
-from typing import Any, Self
+import sys
+from typing import Any
+
+if sys.version_info >= (3, 11, 0):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ValidationError, field_validator

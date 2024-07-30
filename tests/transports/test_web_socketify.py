@@ -22,7 +22,7 @@ async def modapp_app() -> AsyncGenerator[Modapp, None]:
     try:
         yield app
     finally:
-        await app.stop_async()
+        app.stop()
 
 
 async def test_auth(modapp_app: Modapp):

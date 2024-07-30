@@ -919,24 +919,20 @@ files = [
 
 [[package]]
 name = "googleapis-common-protos"
-version = "1.63.0"
+version = "1.63.2"
 description = "Common protobufs used in Google APIs"
 optional = true
 python-versions = ">=3.7"
-files = []
-develop = false
+files = [
+    {file = "googleapis-common-protos-1.63.2.tar.gz", hash = "sha256:27c5abdffc4911f28101e635de1533fb4cfd2c37fbaa9174587c799fac90aa87"},
+    {file = "googleapis_common_protos-1.63.2-py2.py3-none-any.whl", hash = "sha256:27a2499c7e8aff199665b22741997e485eccc8645aa9176c7c988e6fae507945"},
+]
 
 [package.dependencies]
-protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0.dev0"
+protobuf = ">=3.20.2,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0.dev0"
 
 [package.extras]
 grpc = ["grpcio (>=1.44.0,<2.0.0.dev0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/googleapis/python-api-common-protos.git"
-reference = "28fc17a9208aa98782acc6bee6c40ec12b959706"
-resolved_reference = "28fc17a9208aa98782acc6bee6c40ec12b959706"
 
 [[package]]
 name = "grpcio"
@@ -2679,4 +2675,4 @@ web-socketify = ["socketify"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "f2c0363a0f3ce166cb1fc5a9cc1c27754999e52588c0267d1099d38f49cee3c2"
+content-hash = "e05f1d6f221bb0d9beb267cef374029f1d3c2ae908f3f1c48fcdb1d3eed87ae1"
