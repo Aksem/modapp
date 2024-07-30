@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import sys
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, ClassVar, Self, TypeVar
+from typing import Any, ClassVar, TypeVar
+
+if sys.version_info >= (3, 11, 0):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 @dataclass
