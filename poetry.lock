@@ -2675,4 +2675,4 @@ web-socketify = ["socketify"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "540d58bc4f21baa3ed3a50cd7c0bce931b062c415cd0a60d07134ebf3f469d42"
+content-hash = "e05f1d6f221bb0d9beb267cef374029f1d3c2ae908f3f1c48fcdb1d3eed87ae1"
