@@ -18,9 +18,9 @@ from typing import (
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
+from modapp.base_model import BaseModel
 from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
-from modapp.base_model import BaseModel
 from modapp.routing import Cardinality, Route
 from modapp.types import Metadata
 
@@ -70,7 +70,9 @@ class BaseTransport(ABC):
 
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
-            request_data=lambda: json.dumps(request_data.to_dict(), indent=4, ensure_ascii=False),
+            request_data=lambda: json.dumps(
+                request_data.to_dict(), indent=4, ensure_ascii=False
+            ),
         )
 
         stack = AsyncExitStack()
@@ -84,7 +86,9 @@ class BaseTransport(ABC):
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
-                    reply_str=lambda: json.dumps(reply.to_dict(), indent=4, ensure_ascii=False),
+                    reply_str=lambda: json.dumps(
+                        reply.to_dict(), indent=4, ensure_ascii=False
+                    ),
                 )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:

@@ -3,12 +3,10 @@ from typing import Any, Callable
 from typing_extensions import override  # , Optional
 
 
-class Param:
-    ...
+class Param: ...
 
 
-class Meta(Param):
-    ...
+class Meta(Param): ...
 
 
 class Depends:

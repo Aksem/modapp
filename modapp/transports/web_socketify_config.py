@@ -11,5 +11,5 @@ class WebSocketifyTransportConfig(BaseTransportConfig):
 DEFAULT_CONFIG: WebSocketifyTransportConfig = {
     "port": 3000,
     "max_message_size_kb": 4096,
-    "cors_allow": None
+    "cors_allow": None,
 }

@@ -6,6 +6,7 @@ from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
 from modapp.errors import ServerError
 from modapp.routing import RoutesDict
+
 from .inmemory_config import InMemoryTransportConfig
 
 

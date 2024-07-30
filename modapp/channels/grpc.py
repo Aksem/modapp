@@ -7,6 +7,7 @@ from grpclib.exceptions import GRPCError
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
+from modapp.base_model import BaseModel
 from modapp.client import BaseChannel
 from modapp.errors import (
     BaseModappError,
@@ -14,7 +15,6 @@ from modapp.errors import (
     NotFoundError,
     ServerError,
 )
-from modapp.base_model import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -64,11 +64,11 @@ class GrpcChannel(BaseChannel):
 
         raw_data = self.converter.model_to_raw(request_data)
         # TODO: grpc errors to modapp errors
-        method = grpclib_client.UnaryUnaryMethod(
+        method = grpclib_client.UnaryUnaryMethod[bytes, bytes](
             self.__grpclib_channel,
             route_path,
-            None,
-            None,
+            None,  # type: ignore
+            None,  # type: ignore
         )
         try:
             raw_reply = await method(raw_data)
@@ -88,11 +88,11 @@ class GrpcChannel(BaseChannel):
             self.__grpclib_channel = self.__establish_channel()
 
         raw_data = self.converter.model_to_raw(request_data)
-        method = grpclib_client.UnaryStreamMethod(
+        method = grpclib_client.UnaryStreamMethod[bytes, bytes](
             self.__grpclib_channel,
             route_path,
-            None,
-            None,
+            None,  # type: ignore
+            None,  # type: ignore
         )
         try:
             async with method.open(timeout=0) as stream:

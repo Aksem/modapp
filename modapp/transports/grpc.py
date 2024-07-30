@@ -21,7 +21,8 @@ from modapp.errors import (
 )
 from modapp.routing import Cardinality
 from modapp.types import Metadata
-from .grpc_config import GrpcTransportConfig, DEFAULT_CONFIG
+
+from .grpc_config import DEFAULT_CONFIG, GrpcTransportConfig
 
 if TYPE_CHECKING:
     from modapp.routing import Route, RoutesDict

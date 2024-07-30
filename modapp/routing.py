@@ -5,14 +5,19 @@ from collections import namedtuple
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from enum import Enum, unique
-from inspect import isasyncgenfunction, isgeneratorfunction, signature, iscoroutinefunction
-from typing import TYPE_CHECKING, Coroutine, NamedTuple, ParamSpec, Callable
+from inspect import (
+    isasyncgenfunction,
+    iscoroutinefunction,
+    isgeneratorfunction,
+    signature,
+)
+from typing import TYPE_CHECKING, Callable, Coroutine, NamedTuple, ParamSpec
 
 from loguru import logger
 from typing_extensions import Protocol
 
-from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
 from modapp.base_model import BaseModel
+from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
 
 from .params import Depends, Meta
 
@@ -25,8 +30,7 @@ if TYPE_CHECKING:
 class BaseService(Protocol):
     """This class describes base type of service class."""
 
-    def __mapping__(self) -> dict[str, Any]:
-        ...
+    def __mapping__(self) -> dict[str, Any]: ...
 
 
 _Cardinality = namedtuple(
@@ -119,11 +123,12 @@ class Route:
                 }
             )
 
-        async def request_handler():
+        async def request_handler() -> RequestResponseType:
             if iscoroutinefunction(self.handler):
                 return await self.handler(request, **handler_args)
             else:
                 return self.handler(request, **handler_args)
+
         return request_handler
 
 

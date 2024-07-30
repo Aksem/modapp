@@ -3,8 +3,8 @@ from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.client import BaseChannel
 from modapp.base_model import BaseModel
+from modapp.client import BaseChannel
 from modapp.transports.inmemory import InMemoryTransport
 
 T = TypeVar("T", bound=BaseModel)
@@ -34,11 +34,11 @@ class InMemoryChannel(BaseChannel):
     async def send_unary_stream(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:
-        raw_data = self.converter.model_to_raw(request_data)
+        raw_data = self.converter.model_to_raw(request)
         reply_iterator = await self.transport.handle_request(route_path, raw_data)
         assert isinstance(
             reply_iterator, AsyncIterator

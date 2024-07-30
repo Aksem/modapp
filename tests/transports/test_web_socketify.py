@@ -3,7 +3,6 @@ from typing import AsyncGenerator
 import aiohttp
 import pytest
 
-from modapp.validators.pydantic import PydanticValidator
 from modapp.converters.protobuf import ProtobufConverter
 from modapp.transports.web_socketify import (
     WebSocketifyTransport,
@@ -14,7 +13,7 @@ from modapp.server import Modapp
 
 @pytest.fixture
 async def modapp_app() -> AsyncGenerator[Modapp, None]:
-    converter = ProtobufConverter(protos={}, validator=PydanticValidator())
+    converter = ProtobufConverter(protos={})
     config = WebSocketifyTransportConfig()
     web_transport = WebSocketifyTransport(config=config, converter=converter)
 

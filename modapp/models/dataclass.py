@@ -1,10 +1,10 @@
-from typing import Any, Self
 from dataclasses import asdict
+from typing import Any, Self
 
 from typing_extensions import override
 
-from modapp.errors import InvalidArgumentError
 from modapp.base_model import BaseModel
+from modapp.errors import InvalidArgumentError
 
 
 class DataclassModel(BaseModel):

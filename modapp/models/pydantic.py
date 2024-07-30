@@ -1,6 +1,6 @@
 from typing import Any, Self
 
-from pydantic import ValidationError, BaseModel as PydanticBaseModel
+from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ValidationError, field_validator
 from pydantic.networks import (
     AmqpDsn,
@@ -56,8 +56,8 @@ from pydantic.types import (
 )
 from typing_extensions import override
 
-from modapp.errors import InvalidArgumentError
 from modapp.base_model import BaseModel
+from modapp.errors import InvalidArgumentError
 
 
 class PydanticModel(PydanticBaseModel, BaseModel):
@@ -65,9 +65,7 @@ class PydanticModel(PydanticBaseModel, BaseModel):
 
     @override
     @classmethod
-    def validate_and_construct_from_dict(
-        cls, model_dict: dict[str, Any]
-    ) -> Self:
+    def validate_and_construct_from_dict(cls, model_dict: dict[str, Any]) -> Self:
         try:
             return cls(**model_dict)
         except ValidationError as error:

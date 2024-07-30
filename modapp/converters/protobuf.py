@@ -13,8 +13,8 @@ from loguru import logger
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
 from modapp.base_model import BaseModel, ModelType
+from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError
@@ -59,11 +59,19 @@ def model_field_type_matches_proto_field(
     )
 
 
+PyValue = (
+    str
+    | int
+    | bool
+    | float
+    | list[str | int | bool | float]
+    | dict[str, str | int | bool | float]
+)
+PyValueOrProtoMessage = protobuf_message.Message | str | int | bool | float
+
+
 class ProtobufConverter(BaseConverter):
-    def __init__(
-        self,
-        protos: dict[str, Type[protobuf_message.Message]]
-    ) -> None:
+    def __init__(self, protos: dict[str, Type[protobuf_message.Message]]) -> None:
         super().__init__()
         self.protos = protos
         # self.resolved_protos: dict[str, Type[protobuf_message.Message]] = {}
@@ -193,10 +201,13 @@ class ProtobufConverter(BaseConverter):
                 model_dict[field.name] = proto_obj.__getattribute__(field.name)
         return model_dict
 
-    def __proto_value_to_py_value(
-        self, value: protobuf_message.Message | str | int | bool | float
-    ):
-        if type(value) in [str, int, float, bool]:
+    def __proto_value_to_py_value(self, value: PyValueOrProtoMessage) -> PyValue:
+        if (
+            isinstance(value, str)
+            or isinstance(value, int)
+            or isinstance(value, float)
+            or isinstance(value, bool)
+        ):
             return value
         elif isinstance(value, protobuf_message.Message):
             return self.__proto_obj_to_dict(value)

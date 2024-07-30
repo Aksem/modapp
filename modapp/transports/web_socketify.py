@@ -5,32 +5,30 @@ Dev Notes:
 """
 
 from __future__ import annotations
-from pathlib import Path
+
 import secrets
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator
 
 from loguru import logger
-from typing_extensions import override
 from socketify import (
     App,
     CompressOptions,
+    OpCode,
     Request,
     Response,
     WebSocket,
-    OpCode,
     sendfile,
 )
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
-from modapp.routing import Route, Cardinality
-from modapp.errors import (
-    InvalidArgumentError,
-    NotFoundError,
-    ServerError,
-)
-from .web_socketify_config import WebSocketifyTransportConfig, DEFAULT_CONFIG
+from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
+from modapp.routing import Cardinality, Route
+
+from .web_socketify_config import DEFAULT_CONFIG, WebSocketifyTransportConfig
 
 if TYPE_CHECKING:
     from modapp.routing import RoutesDict
@@ -171,7 +169,7 @@ class WebSocketifyTransport(BaseTransport):
                         route=route, raw_data=data.getvalue(), meta={}
                     )
                     # TODO: schedule execution
-                    self._send_stream_responses_in_ws(
+                    await self._send_stream_responses_in_ws(
                         stream=response_stream, ws=ws, request_id=request_id
                     )
                     _add_cors_headers_to_response(
