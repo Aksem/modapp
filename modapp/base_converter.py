@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Type
 
-from .models import BaseModel, ModelType
+from .base_model import BaseModel, ModelType
 
 if TYPE_CHECKING:
     from .errors import BaseModappError

@@ -8,7 +8,7 @@ else:
     from typing_extensions import Self
 
 from modapp.base_converter import BaseConverter
-from modapp.models import BaseModel
+from modapp.base_model import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -29,9 +29,9 @@ class BaseChannel(ABC):
         self,
         route_path: str,
         request: BaseModel,
-        reply_cls: Type[BaseModel],
+        reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
-    ) -> BaseModel:
+    ) -> T:
         raise NotImplementedError()
 
     @abstractmethod

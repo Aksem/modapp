@@ -1,30 +1,39 @@
 from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
+import aiohttp
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_model import BaseModel
 from modapp.client import BaseChannel
-from modapp.transports.inmemory import InMemoryTransport
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class InMemoryChannel(BaseChannel):
-    def __init__(self, converter: BaseConverter, transport: InMemoryTransport) -> None:
+class AioHttpChannel(BaseChannel):
+    def __init__(self, converter: BaseConverter, server_address: str) -> None:
         super().__init__(converter)
-        self.transport = transport
+        self.server_address = server_address
 
     @override
     async def send_unary_unary(
         self,
         route_path: str,
         request_data: BaseModel,
-        reply_cls: Type[BaseModel],
+        reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
-    ) -> BaseModel:
+    ) -> T:
         raw_data = self.converter.model_to_raw(request_data)
-        raw_reply = await self.transport.handle_request(route_path, raw_data)
+
+        # TODO: save client session
+        async with aiohttp.ClientSession() as session:
+            # TODO: check route path
+            async with session.post(
+                self.server_address + route_path.replace(".", "/").lower(),
+                data=raw_data,
+            ) as response:
+                raw_reply = await response.read()
+
         assert isinstance(
             raw_reply, bytes
         ), "Reply on unary-unary request should be bytes"
@@ -34,17 +43,20 @@ class InMemoryChannel(BaseChannel):
     async def send_unary_stream(
         self,
         route_path: str,
-        request: BaseModel,
+        request_data: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:
-        raw_data = self.converter.model_to_raw(request)
-        reply_iterator = await self.transport.handle_request(route_path, raw_data)
-        assert isinstance(
-            reply_iterator, AsyncIterator
-        ), "Reply on unary-stream request should be async iterator of bytes"
-        async for raw_message in reply_iterator:
-            yield self.converter.raw_to_model(raw_message, reply_cls)
+        raise NotImplementedError()
+        # raw_data = self.converter.model_to_raw(request_data)
+
+        # TODO
+
+        # assert isinstance(
+        #     reply_iterator, AsyncIterator
+        # ), "Reply on unary-stream request should be async iterator of bytes"
+        # async for raw_message in reply_iterator:
+        #     yield self.converter.raw_to_model(raw_message, reply_cls)
 
     @override
     async def send_stream_unary(self) -> None:

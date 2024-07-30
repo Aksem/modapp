@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+import json
 import traceback
 from abc import ABC
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Optional,
+    TypedDict,
+    Union,
+)
 
 from loguru import logger
 
 from modapp.base_converter import BaseConverter
+from modapp.base_model import BaseModel
 from modapp.converter_utils import get_default_converter
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
-from modapp.models import BaseModel
 from modapp.routing import Cardinality, Route
 from modapp.types import Metadata
 
@@ -19,7 +29,7 @@ if TYPE_CHECKING:
 
 
 class BaseTransportConfig(TypedDict):
-    ...
+    max_message_size_kb: int
 
 
 class BaseTransport(ABC):
@@ -28,7 +38,9 @@ class BaseTransport(ABC):
     CONFIG_KEY: str
 
     def __init__(
-        self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None
+        self,
+        config: BaseTransportConfig,
+        converter: Optional[BaseConverter] = None,
     ):
         self.config = config
         self.converter = converter if converter is not None else get_default_converter()
@@ -36,7 +48,7 @@ class BaseTransport(ABC):
     async def start(self, routes: RoutesDict) -> None:
         raise NotImplementedError()
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         raise NotImplementedError()
 
     # TODO: AsyncIterator in raw_data type
@@ -58,32 +70,37 @@ class BaseTransport(ABC):
 
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
-            request_data=lambda: request_data.model_dump_json(indent=2),
+            request_data=lambda: json.dumps(
+                request_data.to_dict(), indent=4, ensure_ascii=False
+            ),
         )
 
-        # TODO: validate if there is validator?
         stack = AsyncExitStack()
 
         try:
-            handler = route.get_request_handler(request_data, meta, stack)
+            handler = await route.get_request_handler(request_data, meta, stack)
             if route.proto_cardinality == Cardinality.UNARY_UNARY:
-                reply = handler()
-                # modapp validates request handlers, trust it
+                reply = await handler()
                 assert isinstance(reply, BaseModel)
+                # modapp validates request handlers, trust it
                 proto_reply = self.converter.model_to_raw(reply)
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
-                    reply_str=lambda: reply.model_dump_json(indent=2),
+                    reply_str=lambda: json.dumps(
+                        reply.to_dict(), indent=4, ensure_ascii=False
+                    ),
                 )
                 return proto_reply
             elif route.proto_cardinality == Cardinality.UNARY_STREAM:
 
                 async def handle_request(
-                    handler: Callable[..., AsyncIterator[BaseModel]],
+                    handler: Callable[
+                        ..., Coroutine[Any, Any, AsyncIterator[BaseModel]]
+                    ],
                     converter: BaseConverter,
                     route: Route,
                 ) -> AsyncIterator[bytes]:
-                    response_iterator = handler()
+                    response_iterator = await handler()
                     logger.debug(f"Response stream on {route.path} ready")
                     assert isinstance(
                         response_iterator, AsyncIterator

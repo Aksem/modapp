@@ -3,16 +3,21 @@ from __future__ import annotations
 import types
 from collections import namedtuple
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, contextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from enum import Enum, unique
-from inspect import isgeneratorfunction, signature
-from typing import TYPE_CHECKING, Coroutine, NamedTuple, ParamSpec, Callable
+from inspect import (
+    isasyncgenfunction,
+    iscoroutinefunction,
+    isgeneratorfunction,
+    signature,
+)
+from typing import TYPE_CHECKING, Callable, Coroutine, NamedTuple, ParamSpec
 
 from loguru import logger
 from typing_extensions import Protocol
 
+from modapp.base_model import BaseModel
 from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
-from modapp.models import BaseModel
 
 from .params import Depends, Meta
 
@@ -25,8 +30,7 @@ if TYPE_CHECKING:
 class BaseService(Protocol):
     """This class describes base type of service class."""
 
-    def __mapping__(self) -> dict[str, Any]:
-        ...
+    def __mapping__(self) -> dict[str, Any]: ...
 
 
 _Cardinality = namedtuple(
@@ -83,9 +87,9 @@ class Route:
             Dependant.from_depends_list(handler, dependencies) if dependencies else None
         )
 
-    def get_request_handler(
+    async def get_request_handler(
         self, request: RequestResponseType, meta: MetaType, stack: AsyncExitStack
-    ) -> Callable[..., RequestResponseType]:
+    ) -> Callable[..., Coroutine[Any, Any, RequestResponseType]]:
         handler_args: dict[str, Any] = {}
         try:
             handler_args.update(
@@ -99,22 +103,33 @@ class Route:
 
         if self.dependant is not None and self.dependant.dependencies is not None:
             # TODO: solve concurrently
-            def solve_dependency(
+            async def solve_dependency(
                 dependency: DependencyFunc, stack: AsyncExitStack
             ) -> Any:
                 if isgeneratorfunction(dependency):
                     cm = contextmanager(dependency)()  # TODO: dependency args
                     return stack.enter_context(cm)
+                elif isasyncgenfunction(dependency):
+                    cm = asynccontextmanager(dependency)()  # TODO: dependency args
+                    return await stack.enter_async_context(cm)
+                else:
+                    raise Exception()
 
             # TODO: recursive resolving with parameters support
             handler_args.update(
                 {
-                    str(dep.name): solve_dependency(dep.callable, stack)
+                    str(dep.name): await solve_dependency(dep.callable, stack)
                     for dep in self.dependant.dependencies
                 }
             )
 
-        return lambda: self.handler(request, **handler_args)
+        async def request_handler() -> RequestResponseType:
+            if iscoroutinefunction(self.handler):
+                return await self.handler(request, **handler_args)
+            else:
+                return self.handler(request, **handler_args)
+
+        return request_handler
 
 
 RoutesDict = dict[str, Route]
@@ -183,6 +198,7 @@ class APIRouter:
             handler_meta_kwargs=meta_kwargs,
             dependencies=dependencies if len(dependencies.keys()) > 0 else None,
         )
+        handler.__modapp_route__ = self._routes[route_meta.path]
 
     def add_route(self, route: Route) -> None:
         self._routes[route.path] = route

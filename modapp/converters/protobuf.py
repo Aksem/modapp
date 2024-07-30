@@ -5,7 +5,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Type, cast
 
 import google.protobuf.descriptor as protobuf_descriptor
-from google._upb._message import MessageMapContainer, ScalarMapContainer  # type: ignore
 from google.protobuf import message as protobuf_message
 from google.protobuf.timestamp_pb2 import Timestamp
 from google.rpc import status_pb2  # type: ignore
@@ -14,9 +13,8 @@ from loguru import logger
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.base_validator import BaseValidator
+from modapp.base_model import BaseModel, ModelType
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
-from modapp.models import BaseModel, ModelType
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError
@@ -61,15 +59,21 @@ def model_field_type_matches_proto_field(
     )
 
 
+PyValue = (
+    str
+    | int
+    | bool
+    | float
+    | list[str | int | bool | float]
+    | dict[str, str | int | bool | float]
+)
+PyValueOrProtoMessage = protobuf_message.Message | str | int | bool | float
+
+
 class ProtobufConverter(BaseConverter):
-    def __init__(
-        self,
-        protos: dict[str, Type[protobuf_message.Message]],
-        validator: BaseValidator,
-    ) -> None:
+    def __init__(self, protos: dict[str, Type[protobuf_message.Message]]) -> None:
         super().__init__()
         self.protos = protos
-        self.validator = validator
         # self.resolved_protos: dict[str, Type[protobuf_message.Message]] = {}
 
     @override
@@ -83,13 +87,11 @@ class ProtobufConverter(BaseConverter):
 
         proto_instance = proto_cls.FromString(raw)
         model_dict = self.__proto_obj_to_dict(proto_instance)
-        return self.validator.validate_and_construct_from_dict(
-            model_dict=model_dict, model_cls=model_cls
-        )
+        return model_cls.validate_and_construct_from_dict(model_dict=model_dict)
 
     @override
     def model_to_raw(self, model: BaseModel) -> bytes:
-        model_dict = self.validator.model_to_dict(model=model)
+        model_dict = model.to_dict()
         proto_obj = self.__dict_to_proto_obj(
             model_dict=model_dict,
             model_obj=model,
@@ -169,25 +171,18 @@ class ProtobufConverter(BaseConverter):
             elif (
                 field.label == field.LABEL_REPEATED and field.type == field.TYPE_MESSAGE
             ):
-                if isinstance(
-                    proto_obj.__getattribute__(field.name), ScalarMapContainer
-                ):
-                    # maps are also repeated messages
-                    proto_map = proto_obj.__getattribute__(field.name)
-                    model_dict[field.name] = dict(proto_map.items())
-                elif isinstance(
-                    proto_obj.__getattribute__(field.name), MessageMapContainer
-                ):
-                    proto_map = proto_obj.__getattribute__(field.name)
+                proto_map = proto_obj.__getattribute__(field.name)
+                # It is a repeated message or map
+                if hasattr(proto_map, "GetEntryClass"):
+                    # map
                     model_dict[field.name] = {
-                        key: self.__proto_obj_to_dict(value)
+                        key: self.__proto_value_to_py_value(value)
                         for key, value in proto_map.items()
                     }
                 else:
-                    # repeated with messages: convert messages
+                    # repeated message
                     model_dict[field.name] = [
-                        self.__proto_obj_to_dict(item)
-                        for item in proto_obj.__getattribute__(field.name)
+                        self.__proto_obj_to_dict(item) for item in proto_map
                     ]
             elif field.type == field.TYPE_MESSAGE:
                 if field.message_type.full_name == "google.protobuf.Timestamp":
@@ -202,8 +197,22 @@ class ProtobufConverter(BaseConverter):
                         proto_obj.__getattribute__(field.name)
                     )
             else:
+                # e.g. repeated scalar
                 model_dict[field.name] = proto_obj.__getattribute__(field.name)
         return model_dict
+
+    def __proto_value_to_py_value(self, value: PyValueOrProtoMessage) -> PyValue:
+        if (
+            isinstance(value, str)
+            or isinstance(value, int)
+            or isinstance(value, float)
+            or isinstance(value, bool)
+        ):
+            return value
+        elif isinstance(value, protobuf_message.Message):
+            return self.__proto_obj_to_dict(value)
+        else:
+            raise Exception(f"Unknown data type: {type(value)}")
 
     def __dict_to_proto_obj(
         self,

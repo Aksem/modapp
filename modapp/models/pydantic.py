@@ -1,7 +1,7 @@
-from typing import TypeVar
+from typing import Any, Self
 
-from pydantic import BaseModel as PBaseModel
-from pydantic import ValidationError, validator
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ValidationError, field_validator
 from pydantic.networks import (
     AmqpDsn,
     AnyHttpUrl,
@@ -54,21 +54,33 @@ from pydantic.types import (
     conset,
     constr,
 )
+from typing_extensions import override
+
+from modapp.base_model import BaseModel
+from modapp.errors import InvalidArgumentError
 
 
-class BaseModel(PBaseModel):
-    __modapp_path__: str = ""
+class PydanticModel(PydanticBaseModel, BaseModel):
+    __dump_options__: dict[str, Any] = {}
 
-    model_config = {}
+    @override
+    @classmethod
+    def validate_and_construct_from_dict(cls, model_dict: dict[str, Any]) -> Self:
+        try:
+            return cls(**model_dict)
+        except ValidationError as error:
+            raise InvalidArgumentError(
+                {str(error["loc"][0]): error["msg"] for error in error.errors()}
+            )
 
-
-ModelType = TypeVar("ModelType", bound=BaseModel)
+    @override
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump(**self.__dump_options__)
 
 
 __all__ = [
     "BaseModel",
-    "ModelType",
-    "validator",
+    "field_validator",
     "ValidationError",
     # pydantic types
     "StrictStr",

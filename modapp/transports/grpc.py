@@ -9,10 +9,10 @@ from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 from loguru import logger
-from typing_extensions import NotRequired, override
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.base_transport import BaseTransport
 from modapp.errors import (
     BaseModappError,
     InvalidArgumentError,
@@ -22,20 +22,10 @@ from modapp.errors import (
 from modapp.routing import Cardinality
 from modapp.types import Metadata
 
+from .grpc_config import DEFAULT_CONFIG, GrpcTransportConfig
+
 if TYPE_CHECKING:
     from modapp.routing import Route, RoutesDict
-
-
-class GrpcTransportConfig(BaseTransportConfig):
-    address: NotRequired[str]
-    port: NotRequired[int]
-
-
-DEFAULT_CONFIG: GrpcTransportConfig = {"address": "127.0.0.1", "port": 50051}
-
-
-# async def recv_request(event: RecvRequest):
-#     logger.trace(f"Income request: {event.method_name}")
 
 
 class RawCodec(CodecBase):
@@ -152,7 +142,7 @@ class GrpcTransport(BaseTransport):
         logger.info(f"Start grpc server: {address}:{port}")
 
     @override
-    async def stop(self) -> None:
+    def stop(self) -> None:
         if self.server is not None:
             self.server.close()
             self.server = None

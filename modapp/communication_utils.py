@@ -4,8 +4,8 @@ from typing import Any, Dict
 from loguru import logger
 from pydantic import ValidationError
 
+from .base_model import BaseModel
 from .errors import ServerError
-from .models import BaseModel
 from .routing import Route
 
 

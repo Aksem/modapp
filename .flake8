@@ -1,9 +1,6 @@
 [flake8]
 max-line-length = 99
 exclude=tests
-# don't check arguments docs in CLI, because docstring is showed in CLI
-per-file-ignores =
-    modapp_cicdtools/cli.py:DAR101
 # d1**: temporary ignore missing docs
 # W503: 'line break before binary operator' rule is incompatible with black
 ignore=D100,D101,D102,D103,D104,D105,D107,W503
