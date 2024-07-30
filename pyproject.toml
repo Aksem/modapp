@@ -9,45 +9,51 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.9"
 loguru = "^0.7.0"
-orjson = "^3.7.9"
-pydantic = "^1.9.1"
-uvloop = { version = "^0.16.0", markers = "sys_platform != 'win32'", optional = true }
-grpclib = { version = "^0.4.3", optional = true }
-googleapis-common-protos = { version = "^1.56.4", optional = true }
-aiohttp = { version = "^3.8.1", optional = true }
-python-socketio = { version = "^5.7.1", optional = true }
+pydantic = "^2.0"
+uvloop = { version = "^0.19.0", markers = "sys_platform != 'win32'", optional = true }
+winloop = { version = "^0.0.8", markers = "sys_platform == 'win32'", optional = true }
+grpclib = { version = "^0.4.7", optional = true }
+googleapis-common-protos = { git = "https://github.com/googleapis/python-api-common-protos.git", rev = "28fc17a9208aa98782acc6bee6c40ec12b959706", optional = true }
+socketify = { version = "^0.0.27", optional = true }
+orjson = { version = "^3.10.3", optional = true }
+aiohttp = { extras = ["speedups"], version = "^3.9.5", optional = true }
+anyio = {version = "^4.4.0", optional = true}
 
 [tool.poetry.extras]
-uvloop = ["uvloop"]
+uvloop = ["uvloop", "winloop"]
 grpc = ["grpclib", "googleapis-common-protos"]
-socketio = ["aiohttp", "python-socketio"]
+web_socketify = ["socketify"]
+json = ["orjson"]
+web_aiohttp = ["aiohttp"]
+anyio = ["anyio"]
 
 [tool.poetry.group.dev.dependencies]
-isort = "^5.10.1"
-black = "^22.6.0"
-flake8 = "^5.0.1"
+isort = "^5.13.2"
+black = "^24.4.2"
+flake8 = "^7.1.0"
 flake8-docstrings = "^1.6.0"
 darglint = "^1.8.1"
-flake8-bugbear = "^22.7.1"
-flake8-comprehensions = "^3.10.0"
+flake8-bugbear = "^24.4.26"
+flake8-comprehensions = "^3.15.0"
 bandit = "^1.7.4"
 safety = "^2.1.1"
-mypy = "^0.991"
+mypy = "^1.5.0"
 types-protobuf = "^4.21.0.2"
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 pytest-mock = "^3.10.0"
-pytest-memray = "^1.4.0"
+pytest-memray = { version = "^1.4.0", markers = "sys_platform == 'linux' or sys_platform == 'darwin'" }
 pyinstrument = "^4.4.0"
 pytest-benchmark = "^4.0.0"
+grpcio-tools = "^1.56.0"
+pytest-asyncio = "^0.21.1"
 
 [build-system]
-requires = ["poetry-core>=1.1.0b2"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-
 [tool.black]
-target-version = ['py38', 'py39', 'py310']
+target-version = ['py39', 'py310', 'py311']
 preview = true
 exclude = '''
 (
@@ -71,6 +77,7 @@ exclude = '''
 profile = "black"
 
 [tool.mypy]
+disallow_any_generics = true
 disallow_untyped_defs = true
 disallow_any_unimported = true
 no_implicit_optional = true
@@ -78,3 +85,12 @@ check_untyped_defs = true
 warn_return_any = true
 show_error_codes = true
 warn_unused_ignores = true
+enable_error_code = ['explicit-override']
+
+[[tool.mypy.overrides]]
+module = [
+  "modapp.transports.web_socketify",
+  "modapp.transports.web_socketify_config"
+]
+ignore_missing_imports = true
+disallow_any_unimported = false

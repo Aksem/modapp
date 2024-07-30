@@ -3,21 +3,26 @@ from __future__ import annotations
 import types
 from collections import namedtuple
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, contextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from enum import Enum, unique
-from inspect import signature, isgeneratorfunction
-from typing import TYPE_CHECKING, Union, Dict, NamedTuple
+from inspect import (
+    isasyncgenfunction,
+    iscoroutinefunction,
+    isgeneratorfunction,
+    signature,
+)
+from typing import TYPE_CHECKING, Callable, Coroutine, NamedTuple, ParamSpec
 
 from loguru import logger
 from typing_extensions import Protocol
 
-from modapp.dependencies import Dependant, DependencyOverrides
-from modapp.models import to_camel, BaseModel
+from modapp.base_model import BaseModel
+from modapp.dependencies import Dependant, DependencyFunc, DependencyOverrides
 
-from .params import Meta, Depends
+from .params import Depends, Meta
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, List, Optional, Type
+    from typing import Any, List, Optional, Type
 
     from .types import DecoratedCallable
 
@@ -25,8 +30,7 @@ if TYPE_CHECKING:
 class BaseService(Protocol):
     """This class describes base type of service class."""
 
-    def __mapping__(self) -> Dict[str, Any]:
-        ...
+    def __mapping__(self) -> dict[str, Any]: ...
 
 
 _Cardinality = namedtuple(
@@ -48,22 +52,26 @@ class RouteMeta(NamedTuple):
     cardinality: Cardinality
 
 
-RequestResponseType = Union[BaseModel, AsyncIterator[BaseModel]]
-MetaType = Dict[str, Union[int, str, bool]]
+RequestResponseType = BaseModel | AsyncIterator[BaseModel]
+MetaType = dict[str, int | str | bool]
+P = ParamSpec("P")
+RouteHandlerCallable = (
+    Callable[[RequestResponseType | Depends | Meta], RequestResponseType]
+    | Coroutine[RequestResponseType, None, None]
+)
 
 
 class Route:
-    # TODO: more concrete type for handler
     def __init__(
         self,
         path: str,
-        handler: Callable,
+        handler: RouteHandlerCallable,
         router: APIRouter,
         request_type: Type[BaseModel],
         reply_type: Type[BaseModel],
-        proto_cardinality,
-        handler_meta_kwargs: Optional[Dict[str, Meta]] = None,
-        dependencies: Optional[Dict[str, Depends]] = None,
+        proto_cardinality: Cardinality,
+        handler_meta_kwargs: dict[str, Meta] | None = None,
+        dependencies: dict[str, Depends] | None = None,
     ) -> None:
         self.path = path
         self.handler = handler
@@ -72,24 +80,22 @@ class Route:
         self.reply_type = reply_type
         self.proto_cardinality = proto_cardinality
 
-        self.handler_meta_kwargs: Dict[str, Meta] = {}
+        self.handler_meta_kwargs: dict[str, Meta] = {}
         if handler_meta_kwargs:
             self.handler_meta_kwargs = handler_meta_kwargs
-        self.dependant: Optional[Dependant] = (
+        self.dependant: Dependant | None = (
             Dependant.from_depends_list(handler, dependencies) if dependencies else None
         )
 
-    def get_request_handler(
+    async def get_request_handler(
         self, request: RequestResponseType, meta: MetaType, stack: AsyncExitStack
-    ) -> Callable[[], RequestResponseType]:
-        handler_args = dict(request=request)
+    ) -> Callable[..., Coroutine[Any, Any, RequestResponseType]]:
+        handler_args: dict[str, Any] = {}
         try:
             handler_args.update(
                 {
-                    meta_key: meta[to_camel(meta_key)]
-                    for meta_key in list(
-                        name for name in self.handler_meta_kwargs.keys()
-                    )
+                    meta_key: meta[meta_key]
+                    for meta_key in self.handler_meta_kwargs.keys()
                 }
             )
         except KeyError as error:
@@ -97,30 +103,43 @@ class Route:
 
         if self.dependant is not None and self.dependant.dependencies is not None:
             # TODO: solve concurrently
-            def solve_dependency(dependency: Callable, stack: AsyncExitStack):
+            async def solve_dependency(
+                dependency: DependencyFunc, stack: AsyncExitStack
+            ) -> Any:
                 if isgeneratorfunction(dependency):
                     cm = contextmanager(dependency)()  # TODO: dependency args
                     return stack.enter_context(cm)
+                elif isasyncgenfunction(dependency):
+                    cm = asynccontextmanager(dependency)()  # TODO: dependency args
+                    return await stack.enter_async_context(cm)
+                else:
+                    raise Exception()
 
             # TODO: recursive resolving with parameters support
             handler_args.update(
                 {
-                    dep.name: solve_dependency(dep.callable, stack)
+                    str(dep.name): await solve_dependency(dep.callable, stack)
                     for dep in self.dependant.dependencies
                 }
             )
 
-        return lambda: self.handler(**handler_args)
+        async def request_handler() -> RequestResponseType:
+            if iscoroutinefunction(self.handler):
+                return await self.handler(request, **handler_args)
+            else:
+                return self.handler(request, **handler_args)
+
+        return request_handler
 
 
-RoutesDict = Dict[str, Route]
+RoutesDict = dict[str, Route]
 
 
 class APIRouter:
     def __init__(
         self, dependency_overrides: Optional[DependencyOverrides] = None
     ) -> None:
-        self._routes: Dict[str, Route] = {}
+        self._routes: RoutesDict = {}
         self.child_routers: List[APIRouter] = []
         self.dependency_overrides = dependency_overrides
 
@@ -133,7 +152,9 @@ class APIRouter:
 
         return decorator
 
-    def add_endpoint(self, route_meta: RouteMeta, handler: Callable) -> None:
+    def add_endpoint(
+        self, route_meta: RouteMeta, handler: RouteHandlerCallable
+    ) -> None:
         # TODO: logs only on registering in main router
         if route_meta.path in self.routes:
             logger.warning(f'Route "{route_meta.path}" reregistered')
@@ -141,8 +162,8 @@ class APIRouter:
             logger.info(f'Route "{route_meta.path}" registered')
 
         handler_signature = signature(handler)
-        meta_kwargs: Dict[str, Meta] = {}
-        dependencies: Dict[str, Depends] = {}
+        meta_kwargs: dict[str, Meta] = {}
+        dependencies: dict[str, Depends] = {}
         for parameter_name, parameter in handler_signature.parameters.items():
             if isinstance(parameter.default, Meta):
                 meta_kwargs[parameter_name] = parameter.default
@@ -177,6 +198,7 @@ class APIRouter:
             handler_meta_kwargs=meta_kwargs,
             dependencies=dependencies if len(dependencies.keys()) > 0 else None,
         )
+        handler.__modapp_route__ = self._routes[route_meta.path]
 
     def add_route(self, route: Route) -> None:
         self._routes[route.path] = route
@@ -185,7 +207,7 @@ class APIRouter:
         self.child_routers.append(router)
 
     @property
-    def routes(self) -> Dict[str, Route]:
+    def routes(self) -> dict[str, Route]:
         all_routes = self._routes.copy()
         for router in self.child_routers:
             all_routes.update(router.routes)

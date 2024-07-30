@@ -4,17 +4,23 @@ from typing import Any, Dict
 from loguru import logger
 from pydantic import ValidationError
 
-from .routing import Route
+from .base_model import BaseModel
 from .errors import ServerError
-from .models import BaseModel
+from .routing import Route
 
 
-async def run_request_handler(route: Route, handler_arguments: Dict[str, Any]) -> BaseModel:
+async def run_request_handler(
+    route: Route, handler_arguments: Dict[str, Any]
+) -> BaseModel:
     try:
         if iscoroutine(route.handler):
-            reply = await route.handler(**handler_arguments)
+            # assert isinstance(route.handler, Coroutine)
+            reply = await route.handler(
+                handler_arguments["request"], **handler_arguments
+            )
         else:
-            reply = route.handler(**handler_arguments)
+            # assert isinstance(route.handler, Callable[..., Any])
+            reply = route.handler(handler_arguments["request"], **handler_arguments)
         return reply
     except ValidationError as error:
         # failed to validate reply

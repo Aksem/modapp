@@ -1,15 +1,20 @@
-from typing import AsyncIterator, Optional, Dict, Any, Type, TypeVar
+from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
 from grpclib import client as grpclib_client
+from grpclib.const import Status as GrpcStatus
 from grpclib.encoding.base import CodecBase
 from grpclib.exceptions import GRPCError
-from grpclib.const import Status as GrpcStatus
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import BaseModappError, NotFoundError, InvalidArgumentError, ServerError
+from modapp.base_model import BaseModel
 from modapp.client import BaseChannel
-from modapp.models import BaseModel
-
+from modapp.errors import (
+    BaseModappError,
+    InvalidArgumentError,
+    NotFoundError,
+    ServerError,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -18,10 +23,12 @@ T = TypeVar("T", bound=BaseModel)
 class RawCodec(CodecBase):
     __content_subtype__ = "proto"
 
-    def encode(self, message, message_type):
+    @override
+    def encode(self, message: Any, message_type: Any) -> Any:
         return message
 
-    def decode(self, data: bytes, message_type):
+    @override
+    def decode(self, data: bytes, message_type: Any) -> Any:
         return data
 
 
@@ -38,14 +45,13 @@ class GrpcChannel(BaseChannel):
     def __establish_channel(self) -> grpclib_client.Channel:
         return grpclib_client.Channel(self.__host, self.__port, codec=RawCodec())
 
-    def __aenter__(self):
-        return self
-
-    def __aexit__(self):
+    @override
+    def __aexit__(self) -> None:
         if self.__grpclib_channel is not None:
             self.__grpclib_channel.close()
             self.__grpclib_channel = None
 
+    @override
     async def send_unary_unary(
         self,
         route_path: str,
@@ -58,11 +64,11 @@ class GrpcChannel(BaseChannel):
 
         raw_data = self.converter.model_to_raw(request_data)
         # TODO: grpc errors to modapp errors
-        method = grpclib_client.UnaryUnaryMethod(
+        method = grpclib_client.UnaryUnaryMethod[bytes, bytes](
             self.__grpclib_channel,
             route_path,
-            None,
-            None,
+            None,  # type: ignore
+            None,  # type: ignore
         )
         try:
             raw_reply = await method(raw_data)
@@ -70,6 +76,7 @@ class GrpcChannel(BaseChannel):
             raise self.__grpc_error_to_modapp(grpc_error)
         return self.converter.raw_to_model(raw_reply, reply_cls)
 
+    @override
     async def send_unary_stream(
         self,
         route_path: str,
@@ -81,11 +88,11 @@ class GrpcChannel(BaseChannel):
             self.__grpclib_channel = self.__establish_channel()
 
         raw_data = self.converter.model_to_raw(request_data)
-        method = grpclib_client.UnaryStreamMethod(
+        method = grpclib_client.UnaryStreamMethod[bytes, bytes](
             self.__grpclib_channel,
             route_path,
-            None,
-            None,
+            None,  # type: ignore
+            None,  # type: ignore
         )
         try:
             async with method.open(timeout=0) as stream:
@@ -95,11 +102,13 @@ class GrpcChannel(BaseChannel):
         except GRPCError as grpc_error:
             raise self.__grpc_error_to_modapp(grpc_error)
 
-    async def send_stream_unary(self):
+    @override
+    async def send_stream_unary(self) -> None:
         # TODO
         raise NotImplementedError()
 
-    async def send_stream_stream(self):
+    @override
+    async def send_stream_stream(self) -> None:
         # TODO
         raise NotImplementedError()
 

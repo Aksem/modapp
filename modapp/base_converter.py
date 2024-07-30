@@ -1,16 +1,17 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Type
+from typing import TYPE_CHECKING, Type
+
+from .base_model import BaseModel, ModelType
 
 if TYPE_CHECKING:
-    from .routing import Route
-    from .models import BaseModel
     from .errors import BaseModappError
 
 
 class BaseConverter(ABC):
     @abstractmethod
-    def raw_to_model(self, raw: bytes, model_cls: Type[BaseModel]) -> BaseModel:
+    def raw_to_model(self, raw: bytes, model_cls: Type[ModelType]) -> ModelType:
         raise NotImplementedError()
 
     @abstractmethod

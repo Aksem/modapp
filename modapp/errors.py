@@ -2,8 +2,7 @@ from enum import Enum, unique
 from typing import Dict
 
 
-class BaseModappError(Exception):
-    ...
+class BaseModappError(Exception): ...
 
 
 class InvalidArgumentError(BaseModappError):
@@ -11,22 +10,19 @@ class InvalidArgumentError(BaseModappError):
         self.errors_by_fields = errors_by_fields
 
 
-class NotFoundError(BaseModappError):
-    ...
+class NotFoundError(BaseModappError): ...
 
 
-class ServerError(BaseModappError):
-    ...
+class ServerError(BaseModappError): ...
 
 
 # TODO: different base exceptions external and internal errors
-class PersistanceError(BaseModappError):
-    ...
+class PersistanceError(BaseModappError): ...
 
 
 @unique
 class Status(Enum):
-    """Predefined gRPC status codes represented as enum
+    """Predefined gRPC status codes represented as enum.
 
     See also: https://github.com/grpc/grpc/blob/master/doc/statuscodes.md
     """

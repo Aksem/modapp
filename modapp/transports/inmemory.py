@@ -1,38 +1,35 @@
-import inspect
-import concurrent.futures
 from typing import AsyncIterator, Optional
 
-from loguru import logger
+from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
-from modapp.errors import ServerError, BaseModappError
-from modapp.base_transport import BaseTransport, BaseTransportConfig
+from modapp.base_transport import BaseTransport
+from modapp.errors import ServerError
 from modapp.routing import RoutesDict
 
-
-class InMemoryTransportConfig(BaseTransportConfig):
-    ...
-
-
-DEFAULT_CONFIG: InMemoryTransportConfig = {}
+from .inmemory_config import InMemoryTransportConfig
 
 
 class InMemoryTransport(BaseTransport):
     CONFIG_KEY = "inmemory"
 
     def __init__(
-        self, config: BaseTransportConfig, converter: Optional[BaseConverter] = None
+        self, config: InMemoryTransportConfig, converter: Optional[BaseConverter] = None
     ):
         super().__init__(config, converter)
         self.routes: Optional[RoutesDict] = None
 
+    @override
     async def start(self, routes: RoutesDict) -> None:
         self.routes = routes
 
-    async def stop(self) -> None:
+    @override
+    def stop(self) -> None:
         self.routes = None
 
-    async def handle_request(self, route_path: str, request_data: bytes) -> bytes | AsyncIterator[bytes]:
+    async def handle_request(
+        self, route_path: str, request_data: bytes
+    ) -> bytes | AsyncIterator[bytes]:
         if self.routes is None:
             raise Exception("Server need to be started first")  # TODO
         try:
@@ -40,7 +37,7 @@ class InMemoryTransport(BaseTransport):
         except KeyError:
             raise ServerError()  # TODO
         # with concurrent.futures.ThreadPoolExecutor() as executor:
-        meta = {}  # TODO
+        meta: dict[str, str | int | bool] = {}  # TODO
         data = await self.got_request(route=route, raw_data=request_data, meta=meta)
         return data
         # future = executor.submit(

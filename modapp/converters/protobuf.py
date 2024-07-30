@@ -1,197 +1,104 @@
 from __future__ import annotations
-from datetime import timezone
-from typing import List, TYPE_CHECKING, Dict, Optional, Any, Type, Set
-import inspect
 
-import orjson
+from datetime import datetime, timezone
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Type, cast
+
 import google.protobuf.descriptor as protobuf_descriptor
-from loguru import logger
-from pydantic import ValidationError
+from google.protobuf import message as protobuf_message
 from google.protobuf.timestamp_pb2 import Timestamp
-from google.rpc import status_pb2
-from google.rpc.error_details_pb2 import BadRequest
+from google.rpc import status_pb2  # type: ignore
+from google.rpc.error_details_pb2 import BadRequest  # type: ignore
+from loguru import logger
+from typing_extensions import override
 
-from modapp.models import BaseModel, to_camel, to_snake
 from modapp.base_converter import BaseConverter
-from modapp.errors import InvalidArgumentError, Status, NotFoundError, ServerError
+from modapp.base_model import BaseModel, ModelType
+from modapp.errors import InvalidArgumentError, NotFoundError, ServerError, Status
 
 if TYPE_CHECKING:
     from modapp.errors import BaseModappError
 
 
-ProtoType = Any
+PRIMITIVE_TYPE_PROTO_TO_PY_MAP = {
+    protobuf_descriptor.FieldDescriptor.TYPE_DOUBLE: float,
+    protobuf_descriptor.FieldDescriptor.TYPE_FLOAT: float,
+    protobuf_descriptor.FieldDescriptor.TYPE_INT64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_UINT64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_INT32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_FIXED64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_FIXED32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_BOOL: bool,
+    protobuf_descriptor.FieldDescriptor.TYPE_STRING: str,
+    # TYPE_GROUP          = 10
+    # TYPE_MESSAGE        = 11
+    protobuf_descriptor.FieldDescriptor.TYPE_BYTES: bytes,
+    protobuf_descriptor.FieldDescriptor.TYPE_UINT32: int,
+    # TODO
+    # protobuf_descriptor.FieldDescriptor.TYPE_ENUM:
+    protobuf_descriptor.FieldDescriptor.TYPE_SFIXED32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SFIXED64: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SINT32: int,
+    protobuf_descriptor.FieldDescriptor.TYPE_SINT64: int,
+}
 
 
 def model_field_type_matches_proto_field(
-    model: BaseModel, field: str, proto_field: protobuf_descriptor.FieldDescriptor
+    dict_field_value: Any,
+    model_field_value: Any,
+    proto_field: protobuf_descriptor.FieldDescriptor,
 ) -> bool:
-    field_value = model.__dict__[field]
-    # primitive types
-    # TODO: other types
-    return (
-        # string
-        (
-            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_STRING
-            and isinstance(field_value, str)
+    if proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
+        return cast(
+            bool,
+            proto_field.message_type.full_name == model_field_value.__modapp_path__,
         )
-        # messages
-        or (
-            proto_field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
-            and proto_field.message_type.full_name == field_value.__modapp_path__
-        )
+    # TODO: what if few proto type map to the same python type? like oneof { int32, int64 }
+    return isinstance(
+        dict_field_value, PRIMITIVE_TYPE_PROTO_TO_PY_MAP[proto_field.type]
     )
 
-    """
-    TYPE_DOUBLE         = 1
-  TYPE_FLOAT          = 2
-  TYPE_INT64          = 3
-  TYPE_UINT64         = 4
-  TYPE_INT32          = 5
-  TYPE_FIXED64        = 6
-  TYPE_FIXED32        = 7
-  TYPE_BOOL           = 8
-  TYPE_STRING         = 9
-  TYPE_GROUP          = 10
-  TYPE_MESSAGE        = 11
-  TYPE_BYTES          = 12
-  TYPE_UINT32         = 13
-  TYPE_ENUM           = 14
-  TYPE_SFIXED32       = 15
-  TYPE_SFIXED64       = 16
-  TYPE_SINT32         = 17
-  TYPE_SINT64         = 18
-    """
 
-
-def get_schema_properties(model_schema: Dict[str, Any]) -> Dict[str, Any]:
-    model_name = model_schema.get("$ref", "").split("/")[-1]
-    if "properties" in model_schema:
-        return model_schema["properties"]
-    elif (
-        "$ref" in model_schema
-        and "definitions" in model_schema
-        and model_name in model_schema["definitions"]
-        and "properties" in model_schema["definitions"][model_name]
-    ):
-        # 'submodels'(models of fields) have $ref in schema and definitions
-        return model_schema["definitions"][model_name]["properties"]
-    else:
-        raise Exception(f"No schema found for {model_name}")
+PyValue = (
+    str
+    | int
+    | bool
+    | float
+    | list[str | int | bool | float]
+    | dict[str, str | int | bool | float]
+)
+PyValueOrProtoMessage = protobuf_message.Message | str | int | bool | float
 
 
 class ProtobufConverter(BaseConverter):
-    def __init__(self, protos: Dict[str, ProtoType]) -> None:
+    def __init__(self, protos: dict[str, Type[protobuf_message.Message]]) -> None:
         super().__init__()
         self.protos = protos
-        self.resolved_protos: Dict[Type[BaseModel], ProtoType] = {}
+        # self.resolved_protos: dict[str, Type[protobuf_message.Message]] = {}
 
-    def raw_to_model(self, raw: bytes, model_cls: Type[BaseModel]) -> BaseModel:
+    @override
+    def raw_to_model(self, raw: bytes, model_cls: Type[ModelType]) -> ModelType:
         try:
-            proto_request_type = self.resolved_protos[model_cls]
+            proto_cls = self.protos[model_cls.__modapp_path__]
         except KeyError:
-            proto_request_type = self.resolve_proto(model_cls.__modapp_path__)
-            if proto_request_type is None:
-                raise ServerError(f"Proto for {model_cls} not found")
-            else:
-                self.resolved_protos[model_cls] = proto_request_type
+            raise ServerError(f"Proto for {model_cls} not found")
+            # else:
+            #     self.resolved_protos[model_cls.__modapp_path__] = proto_request_type
 
-        proto_request = proto_request_type.FromString(raw)
-        return self.__proto_obj_to_model(proto_request, model_cls)
+        proto_instance = proto_cls.FromString(raw)
+        model_dict = self.__proto_obj_to_dict(proto_instance)
+        return model_cls.validate_and_construct_from_dict(model_dict=model_dict)
 
+    @override
     def model_to_raw(self, model: BaseModel) -> bytes:
-        # if reply is None:
-        #     logger.error(f"Route handler '{route.path}' doesn't return value")
-        #     raise ServerError("Internal error")
+        model_dict = model.to_dict()
+        proto_obj = self.__dict_to_proto_obj(
+            model_dict=model_dict,
+            model_obj=model,
+        )
+        return proto_obj.SerializeToString()
 
-        json_reply = orjson.loads(model.json(by_alias=True))
-
-        def fix_json(model, json) -> None:
-            # model is field with reference, it can be also for example Enum
-            if not isinstance(model, BaseModel):
-                return
-
-            model.__class__.update_forward_refs()
-            # TODO: do we need the whole schema or field iterator would be enough?
-            model_schema = model.__class__.schema()
-            schema_properties = get_schema_properties(model_schema)
-
-            # TODO: unify with code below
-            try:
-                proto_reply_type = self.resolved_protos[model.__modapp_path__]
-            except KeyError:
-                proto_reply_type = self.resolve_proto(model.__modapp_path__)
-                if proto_reply_type is None:
-                    raise ServerError(f"Proto for {model.__class__.__name__} not found")
-                else:
-                    self.resolved_protos[model.__modapp_path__] = proto_reply_type
-
-            one_of_fields = proto_reply_type.DESCRIPTOR.oneofs_by_name.keys()
-
-            for field in model.__dict__:
-                field_camel_case = to_camel(field)
-                # convert datetime to google.protobuf.Timestamp instance
-                # in pydantic model schema datetime has type 'string' and format 'date-time'
-                if (
-                    schema_properties[field_camel_case].get("format", None)
-                    == "date-time"
-                ):
-                    json[field_camel_case] = Timestamp(
-                        seconds=int(
-                            model.__dict__[field]
-                            .replace(tzinfo=timezone.utc)
-                            .timestamp()
-                        )
-                        # TODO: nanos?
-                    )
-                elif field_camel_case in one_of_fields:
-                    # one_of field: match subfield by type and replace `field_camel_case` by
-                    # subfield name in json
-                    try:
-                        subfield = next(
-                            proto_field
-                            for proto_field in proto_reply_type.DESCRIPTOR.oneofs_by_name[
-                                field_camel_case
-                            ].fields
-                            if model_field_type_matches_proto_field(
-                                model, field, proto_field
-                            )
-                        )
-                    except StopIteration:
-                        raise ServerError(
-                            f"Cannot match field '{field_camel_case}' in proto"
-                        )
-                    if (
-                        subfield.type
-                        == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE
-                    ):
-                        # first fix submessage, then process parent message
-                        fix_json(model.__dict__[field], json[field_camel_case])
-                    json[subfield.name] = json[field_camel_case]
-                    del json[field_camel_case]
-                elif "$ref" in schema_properties[field_camel_case]:
-                    # model reference, fix recursively
-                    fix_json(model.__dict__[field], json[field_camel_case])
-                elif (
-                    schema_properties[field_camel_case].get("type", None) == "array"
-                    and "$ref" in schema_properties[field_camel_case]["items"]
-                ):
-                    # array of model references
-                    for idx, item in enumerate(model.__dict__[field]):
-                        fix_json(item, json[field_camel_case][idx])
-
-        fix_json(model, json_reply)
-
-        try:
-            proto_reply_type = self.resolved_protos[model.__modapp_path__]
-        except KeyError:
-            proto_reply_type = self.resolve_proto(model.__modapp_path__)
-            if proto_reply_type is None:
-                raise ServerError(f"Proto for {model} not found")
-            else:
-                self.resolved_protos[model.__modapp_path__] = proto_reply_type
-
-        return proto_reply_type(**json_reply).SerializeToString()
-
+    @override
     def error_to_raw(self, error: BaseModappError) -> bytes:
         if isinstance(error, InvalidArgumentError):
             return self.__invalid_argument_to_raw(error)
@@ -209,7 +116,7 @@ class ProtobufConverter(BaseConverter):
         detail = BadRequest(
             field_violations=[
                 BadRequest.FieldViolation(
-                    field=to_camel(field_name),
+                    field=field_name,
                     description=field_error,
                 )
                 for (field_name, field_error) in error.errors_by_fields.items()
@@ -217,13 +124,13 @@ class ProtobufConverter(BaseConverter):
         )
         detail_container = status_proto.details.add()
         detail_container.Pack(detail)
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
     def __not_found_to_raw(self, error: NotFoundError) -> bytes:
         status_proto = status_pb2.Status(
             code=Status.NOT_FOUND.value, message="Not found."
         )
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
     def __server_error_to_raw(self, error: ServerError) -> bytes:
         if len(error.args) > 0:
@@ -231,136 +138,184 @@ class ProtobufConverter(BaseConverter):
         else:
             message = "Internal error"
         status_proto = status_pb2.Status(code=Status.INTERNAL.value, message=message)
-        return status_proto.SerializeToString()
+        return cast(bytes, status_proto.SerializeToString())
 
-    def resolve_proto(self, model_path: str) -> Optional[ProtoType]:
+    def resolve_proto(self, model_path: str) -> Type[protobuf_message.Message] | None:
         try:
             return self.protos[model_path]
         except KeyError:
             logger.error(f"Proto for model {model_path} not found")
             return None
 
-    def __proto_obj_to_model(
-        self, proto_obj: ProtoType, model_cls: Type[BaseModel]
-    ) -> BaseModel:
-        request_dict = {
-            field.name: proto_obj.__getattribute__(field.name)
-            for field in proto_obj.DESCRIPTOR.fields
-            # take only filled fields into account, default values for optional fields expected
-            # to be in schema as well
-            if not field.has_presence or proto_obj.HasField(field.name)
-        }
+    def __proto_obj_to_dict(
+        self, proto_obj: protobuf_message.Message
+    ) -> dict[str, Any]:
+        model_dict: dict[str, Any] = {}
 
-        def update_type_refs(
-            model_type: Type[BaseModel], updated_type_refs: Set[str]
-        ) -> None:
-            if model_type.__name__ in updated_type_refs:
-                return
-
-            model_type.update_forward_refs()
-            updated_type_refs.add(model_type.__name__)
-            for field in model_type.__fields__.items():
-                # if field type is union, then type_ is empty and sub_fields need to be processed
-                if field[1].sub_fields is not None:
-                    for sub_field in field[1].sub_fields:
-                        if issubclass(sub_field.type_, BaseModel):
-                            update_type_refs(sub_field.type_, updated_type_refs)
-                elif issubclass(field[1].type_, BaseModel):
-                    update_type_refs(field[1].type_, updated_type_refs)
-
-        # updating forward refs is required to resolve all ForwardRef before getting schema
-        updated_type_refs: Set[str] = set()
-        update_type_refs(model_cls, updated_type_refs)
-        request_schema = model_cls.schema()
-        schema_properties = get_schema_properties(request_schema)
-
-        # convert one_of fields to union in model
-        for one_of_field in proto_obj.DESCRIPTOR.oneofs_by_name.values():
-            for subfield in one_of_field.fields:
-                if subfield.name in request_dict:
-                    request_dict[one_of_field.name] = request_dict[subfield.name]
-                    del request_dict[subfield.name]
-
-        # TODO: try to process only fields from request_dict
         for field in proto_obj.DESCRIPTOR.fields:
-            if field.has_presence and not proto_obj.HasField(field.name):
+            # skip fields with default values
+            if not (not field.has_presence or proto_obj.HasField(field.name)):
                 continue
-            # first resolve one_of: get its name
+
             if field.containing_oneof is not None:
-                field_name = field.containing_oneof.name
-            else:
-                field_name = field.name
-
-            field_value = request_dict[field_name]
-
-            # arrays need to be converted explicitly
-            if (
-                field_name in schema_properties
-                and schema_properties[field_name].get("type", None) == "array"
-            ):
-                item_type_ref_path = schema_properties[field_name]["items"].get(
-                    "$ref", None
-                )
-                if item_type_ref_path is not None:
-                    # arrays items of complex types need to be converted explicitly
-                    item_model_type = model_cls.__dict__["__fields__"][
-                        to_snake(field_name)
-                    ].outer_type_.__args__[0]
-                    request_dict[field_name] = [
-                        self.__proto_obj_to_model(item, item_model_type)
-                        for item in field_value
-                    ]
+                # field in oneof: set value to oneof field
+                # it can be message as well, convert it if so
+                if field.type == field.TYPE_MESSAGE:
+                    model_dict[field.containing_oneof.name] = self.__proto_obj_to_dict(
+                        proto_obj.__getattribute__(field.name)
+                    )
                 else:
-                    # arrays with simple types as well: RepeatedScalarContainer -> list
-                    request_dict[field_name] = [*request_dict[field_name]]
-
-            # convert subobjects
-            elif field.type == protobuf_descriptor.FieldDescriptor.TYPE_MESSAGE:
-                if field_name not in schema_properties:
-                    logger.error(f"Field {field_name} not found in model schema")
-                    continue
-                model_field = model_cls.__dict__["__fields__"][to_snake(field_name)]
-                # either field type or one of subfields in case of union should match message type
-
-                types = [model_field.type_]
-                if model_field.sub_fields is not None:
-                    types += [subtype.type_ for subtype in model_field.sub_fields]
-                try:
-                    modapp_path = next(
-                        modapp_path
-                        for (modapp_path, proto_type) in self.protos.items()
-                        if field.message_type.full_name
-                        == proto_type.DESCRIPTOR.full_name
+                    model_dict[field.containing_oneof.name] = (
+                        proto_obj.__getattribute__(field.name)
                     )
-                except StopIteration:
-                    logger.error(
-                        f"Cannot resolve field type '{field.message_type.full_name}' in"
-                        " model"
+            elif (
+                field.label == field.LABEL_REPEATED and field.type == field.TYPE_MESSAGE
+            ):
+                proto_map = proto_obj.__getattribute__(field.name)
+                # It is a repeated message or map
+                if hasattr(proto_map, "GetEntryClass"):
+                    # map
+                    model_dict[field.name] = {
+                        key: self.__proto_value_to_py_value(value)
+                        for key, value in proto_map.items()
+                    }
+                else:
+                    # repeated message
+                    model_dict[field.name] = [
+                        self.__proto_obj_to_dict(item) for item in proto_map
+                    ]
+            elif field.type == field.TYPE_MESSAGE:
+                if field.message_type.full_name == "google.protobuf.Timestamp":
+                    timestamp_obj = proto_obj.__getattribute__(field.name)
+                    model_dict[field.name] = datetime.fromtimestamp(
+                        timestamp_obj.seconds + (timestamp_obj.nanos / 1_000_000_000),
+                        tz=timezone.utc,
                     )
-                    continue
-
-                try:
-                    item_model_type = next(
-                        t
-                        for t in types
-                        if inspect.isclass(t)
-                        and issubclass(t, BaseModel)
-                        and t.__modapp_path__ == modapp_path
+                else:
+                    # nested message: convert
+                    model_dict[field.name] = self.__proto_obj_to_dict(
+                        proto_obj.__getattribute__(field.name)
                     )
-                except StopIteration:
-                    logger.error(f"Cannot find modapp type '{modapp_path}' in")
-                    continue
+            else:
+                # e.g. repeated scalar
+                model_dict[field.name] = proto_obj.__getattribute__(field.name)
+        return model_dict
 
-                request_dict[field_name] = self.__proto_obj_to_model(
-                    request_dict[field_name], item_model_type
-                )
+    def __proto_value_to_py_value(self, value: PyValueOrProtoMessage) -> PyValue:
+        if (
+            isinstance(value, str)
+            or isinstance(value, int)
+            or isinstance(value, float)
+            or isinstance(value, bool)
+        ):
+            return value
+        elif isinstance(value, protobuf_message.Message):
+            return self.__proto_obj_to_dict(value)
+        else:
+            raise Exception(f"Unknown data type: {type(value)}")
 
+    def __dict_to_proto_obj(
+        self,
+        model_dict: dict[str, Any],
+        model_obj: BaseModel,
+    ) -> protobuf_message.Message:
         try:
-            return model_cls(**request_dict)
-        except ValidationError as error:
-            raise InvalidArgumentError(
-                {str(error["loc"][0]): error["msg"] for error in error.errors()}
-            )
+            proto_cls = self.protos[model_obj.__modapp_path__]
+        except KeyError:
+            raise ServerError(f"Proto for {model_obj.__modapp_path__} not found")
+
+        # serialize 'oneof' fields
+        for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
+            if oneof_name in model_dict:
+                try:
+                    proto_field_name = next(
+                        field.name
+                        for field in oneof_descriptor.fields
+                        if model_field_type_matches_proto_field(
+                            dict_field_value=model_dict[oneof_name],
+                            model_field_value=model_obj.__getattribute__(oneof_name),
+                            proto_field=field,
+                        )
+                    )
+                except StopIteration:
+                    raise Exception(
+                        f"Field not found in oneof {oneof_name} in message"
+                        f" {proto_cls.DESCRIPTOR.full_name} for value"
+                        f" {model_dict[oneof_name]}"
+                    )
+                model_dict[proto_field_name] = model_dict[oneof_name]
+                del model_dict[oneof_name]
+
+        # python enum to integer
+        for field in proto_cls.DESCRIPTOR.fields:
+            if field.name not in model_dict:
+                continue
+
+            if field.type == field.TYPE_ENUM:
+                model_dict[field.name] = (
+                    model_dict[field.name].value
+                    if isinstance(model_dict[field.name], Enum)
+                    else model_dict[field.name]
+                )
+            elif field.type == field.TYPE_MESSAGE:
+                if field.message_type.full_name == "google.protobuf.Timestamp":
+                    datetime_value = model_dict[field.name]
+                    model_dict[field.name] = Timestamp(
+                        seconds=int(
+                            datetime_value.replace(tzinfo=timezone.utc).timestamp()
+                        ),
+                        nanos=datetime_value.microsecond * 1000,
+                    )
+                elif field.label == field.LABEL_REPEATED:
+                    # maps with messages as values in proto descriptor are repeated messages with
+                    # automatically generated name <FieldNamePascal>Entry. This name cannot be used
+                    # for own messages, so it is unambiguous identifier of a map. At the same time
+                    # it means user cannot create own repeated list of messages with such pattern
+                    # in the name and (key, value) fields inside.
+                    if (
+                        field.message_type.name
+                        == f"{field.camelcase_name[0].upper()}{field.camelcase_name[1:]}Entry"
+                    ):
+                        map_proto_type = field.message_type
+                        if (
+                            "key" in map_proto_type.fields_by_name
+                            and "value" in map_proto_type.fields_by_name
+                        ):
+                            value_message_type = map_proto_type.fields_by_name["value"]
+                            if value_message_type.message_type is not None:
+                                model_dict[field.name] = {
+                                    key: self.__dict_to_proto_obj(
+                                        model_dict=value,
+                                        model_obj=model_obj.__getattribute__(
+                                            field.name
+                                        )[key],
+                                    )
+                                    for (key, value) in model_dict[field.name].items()
+                                }
+                    else:
+                        # repeated with nested message
+                        # value_proto_type_identifier = field.message_type.full_name
+                        model_dict[field.name] = [
+                            self.__dict_to_proto_obj(
+                                model_dict=item_dict,
+                                model_obj=model_obj.__getattribute__(field.name)[idx],
+                                # modapp_path=value_proto_type_identifier,
+                            )
+                            for (idx, item_dict) in enumerate(model_dict[field.name])
+                        ]
+                else:
+                    # nested message
+                    field_name_in_obj = (
+                        field.containing_oneof.name
+                        if field.containing_oneof is not None
+                        else field.name
+                    )
+                    model_dict[field.name] = self.__dict_to_proto_obj(
+                        model_dict=model_dict[field.name],
+                        model_obj=model_obj.__getattribute__(field_name_in_obj),
+                    )
+
+        return proto_cls(**model_dict)
 
 
 __all__ = ["ProtobufConverter"]

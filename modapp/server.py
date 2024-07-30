@@ -1,41 +1,51 @@
 from __future__ import annotations
+
 import asyncio
 import platform
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Coroutine
 
 from loguru import logger
 
 from modapp.routing import APIRouter, RouteMeta
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Optional, Set
+    from typing import Callable
 
     from modapp.base_transport import BaseTransport, BaseTransportConfig
-    from modapp.types import DecoratedCallable
     from modapp.dependencies import DependencyOverrides
+    from modapp.types import DecoratedCallable
 
 
-# uvloop doesn't support Windows yet
-if platform.system() != "Windows":
-    # uvloop is optional dependency
-    try:
+def run_in_better_loop(coroutine: Callable[..., Coroutine[Any, Any, Any]]) -> None:
+    import sys
+
+    # uvloop doesn't support Windows yet
+    if platform.system() != "Windows":
         import uvloop
 
-        # install uvloop event loop to get better performance of event loop
-        uvloop.install()
-    except ImportError:
-        ...
+        loop_lib = uvloop
+    else:
+        import winloop  # type: ignore
+
+        loop_lib = winloop
+
+        if sys.version_info >= (3, 11):
+            with asyncio.Runner(loop_factory=loop_lib.new_event_loop) as runner:
+                runner.run(coroutine())
+        else:
+            loop_lib.install()
+            asyncio.run(coroutine())
 
 
 class Modapp:
     def __init__(
         self,
-        transports: Set[BaseTransport],
-        config: Optional[Dict[str, BaseTransportConfig]] = None,
-        dependency_overrides: Optional[DependencyOverrides] = None,
+        transports: set[BaseTransport],
+        config: dict[str, BaseTransportConfig] | None = None,
+        dependency_overrides: DependencyOverrides | None = None,
     ) -> None:
         self.transports = transports
-        self.config: Dict[str, BaseTransportConfig] = {}
+        self.config: dict[str, BaseTransportConfig] = {}
         if config is not None:
             self.config = config
         self.dependency_overrides = dependency_overrides
@@ -56,20 +66,16 @@ class Modapp:
             self.stop()
 
     async def run_async(self) -> None:
-        await asyncio.gather(*[transport.start(self.router.routes) for transport in self.transports])
+        await asyncio.gather(
+            *[transport.start(self.router.routes) for transport in self.transports]
+        )
         logger.info("Server has started")
 
     def stop(self) -> None:
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(self.stop_async())
-
-    async def stop_async(self) -> None:
-        await asyncio.gather(*[transport.stop() for transport in self.transports])
+        # run API is async, but stop is sync, because using asyncio in except and finally blocks
+        # on app end (e.g. after getting SIGINT) is quite tricky.
+        for transport in self.transports:
+            transport.stop()
         logger.info("Server stop")
 
     def endpoint(
