@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator
 
 from loguru import logger
+from modapp.converters.protobuf import ProtobufConverter
 from socketify import (
     App,
     CompressOptions,
@@ -27,6 +28,7 @@ from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.routing import Cardinality, Route
+from modapp.converters.json import JsonConverter
 
 from .web_socketify_config import DEFAULT_CONFIG, WebSocketifyTransportConfig
 
@@ -124,10 +126,16 @@ class WebSocketifyTransport(BaseTransport):
                     result = await self.got_request(
                         route=route, raw_data=data.getvalue(), meta={}
                     )
-                    # TODO: content type
-                    # response.write_header(
-                    #     "Content-Type", "application/octet-stream"
-                    # )
+                    if isinstance(self.converter, JsonConverter):
+                        content_type = 'application/json'
+                    elif isinstance(self.converter, ProtobufConverter):
+                        content_type = 'application/octet-stream'
+                    else:
+                        content_type = ''
+
+                    response.write_header(
+                        "Content-Type", content_type
+                    )
                     _add_cors_headers_to_response(
                         response,
                         self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
