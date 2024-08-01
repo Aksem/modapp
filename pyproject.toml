@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modapp"
-version = "0.2.7"
+version = "0.3.0"
 description = ""
 authors = ["Vladyslav Hnatiuk <vhnatiuk@ukr.net>"]
 license = "MIT"
@@ -14,7 +14,8 @@ uvloop = { version = "^0.19.0", markers = "sys_platform != 'win32'", optional = 
 winloop = { version = "^0.0.8", markers = "sys_platform == 'win32'", optional = true }
 grpclib = { version = "^0.4.7", optional = true }
 googleapis-common-protos = { version = "^1.63.2", optional = true }
-socketify = { version = "^0.0.27", optional = true }
+# fix socketify to 0.0.27, because 0.0.28 has critical issue: https://github.com/cirospaciari/socketify.py/issues/194
+socketify = { version = "0.0.27", optional = true }
 orjson = { version = "^3.10.3", optional = true }
 aiohttp = { extras = ["speedups"], version = "^3.9.5", optional = true }
 anyio = {version = "^4.4.0", optional = true}
@@ -47,7 +48,10 @@ pytest-memray = { version = "^1.4.0", markers = "sys_platform == 'linux' or sys_
 pyinstrument = "^4.4.0"
 pytest-benchmark = "^4.0.0"
 grpcio-tools = "^1.56.0"
-pytest-asyncio = "^0.21.1"
+# use pre-release version to be able to use async fixtures with async tests:
+# https://github.com/pytest-dev/pytest-asyncio/issues/868
+# https://github.com/pytest-dev/pytest-asyncio/issues/706
+pytest-asyncio = "^0.24.0a0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -18,7 +18,7 @@ class JsonConverter(BaseConverter):
 
     @override
     def raw_to_model(self, raw: bytes, model_cls: Type[ModelType]) -> ModelType:
-        return model_cls(**orjson.loads(raw))
+        return model_cls(**(orjson.loads(raw) if len(raw) > 0 else {}))
 
     @override
     def model_to_raw(self, model: BaseModel) -> bytes:
