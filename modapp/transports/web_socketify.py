@@ -25,8 +25,16 @@ from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_transport import BaseTransport
-from modapp.converters.json import JsonConverter
-from modapp.converters.protobuf import ProtobufConverter
+
+try:
+    from modapp.converters.json import JsonConverter
+except ImportError:
+    JsonConverter = None
+try:
+    from modapp.converters.protobuf import ProtobufConverter
+except ImportError:
+    ProtobufConverter = None
+
 from modapp.errors import InvalidArgumentError, NotFoundError, ServerError
 from modapp.routing import Cardinality, Route
 
@@ -126,9 +134,13 @@ class WebSocketifyTransport(BaseTransport):
                     result = await self.got_request(
                         route=route, raw_data=data.getvalue(), meta={}
                     )
-                    if isinstance(self.converter, JsonConverter):
+                    if JsonConverter is not None and isinstance(
+                        self.converter, JsonConverter
+                    ):
                         content_type = "application/json"
-                    elif isinstance(self.converter, ProtobufConverter):
+                    elif ProtobufConverter is not None and isinstance(
+                        self.converter, ProtobufConverter
+                    ):
                         content_type = "application/octet-stream"
                     else:
                         content_type = ""
