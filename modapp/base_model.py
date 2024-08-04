@@ -15,7 +15,7 @@ else:
 class BaseModel:
     __modapp_path__: ClassVar[str]
 
-    __model_config__: ClassVar[dict[str, str]] = {}
+    __model_config__: ClassVar[dict[str, str | bool | int | float]] = {"camelCase": False}
 
     def __init__(self, *args: tuple[Any], **kwargs: dict[str, Any]) -> None: ...
 
