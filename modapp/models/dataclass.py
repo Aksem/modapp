@@ -41,9 +41,11 @@ class DataclassModel(BaseModel):
                 raise Exception(
                     "Extra 'case_change' is required to use 'camelCase' model option"
                 )
-            data_as_dict = humps.camelize(data_as_dict)
+            data_as_dict = _camelize_model_dict(data_as_dict, self)
         return data_as_dict
 
+
+# TODO: handle containers like list, dict etc correctly
 
 def _camelize_model_dict(
     data_dict: dict[str, Any], model_instance: DataclassModel
