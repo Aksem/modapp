@@ -36,7 +36,7 @@ def test_model_with_dict_data_to_dict_camelcase():
 
 
 def test_model_from_camelcase_data():
-    user_info = UserInfo.validate_and_construct_from_dict({"name": "John White", "full_address": {"postal_code": "80100", "country_name": "Ukraine"}})
+    user_info = UserInfo.validate_and_construct_from_dict({"name": "John White", "fullAddress": {"postal_code": "80100", "country_name": "Ukraine"}})
     expected_user_info = UserInfo(
         name="John White",
         full_address={"postal_code": "80100", "country_name": "Ukraine"},
