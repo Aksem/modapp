@@ -23,11 +23,11 @@ class DataclassModel(BaseModel):
                 raise Exception(
                     "Extra 'case_change' is required to use 'camelCase' model option"
                 )
-            # TODO: we cannot decamelize / camelize the whole object, because data inside of model fields can also includes dicts, that should stay unchanged
             data_as_dict = _decamelize_model_dict(model_dict, cls)
         try:
             return cls(**data_as_dict)
         except Exception as error:  # TODO
+            # TODO: field name should follow camelCase option
             raise InvalidArgumentError(
                 {}
                 # errors_by_fields=# {str(error["loc"][0]): error["msg"] for error in error.errors()}
@@ -67,6 +67,7 @@ def _decamelize_model_dict(
     data_dict: dict[str, Any], model_cls: Type[DataclassModel]
 ) -> dict[str, Any]:
     # NOTE: that data_dict is not validated yet, it can include wrong keys or some keys can be missing
+    assert humps is not None
     decamelized_data_dict: dict[str, Any] = {}
     for key, value in data_dict.items():
         # decamelize all keys and values that are also model instances

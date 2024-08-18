@@ -7,6 +7,7 @@ from typing_extensions import override
 
 from ..base_converter import BaseConverter
 from ..base_model import BaseModel, ModelType
+from ..errors import InvalidArgumentError
 
 if TYPE_CHECKING:
     from ..errors import BaseModappError
@@ -29,4 +30,8 @@ class JsonConverter(BaseConverter):
     @override
     def error_to_raw(self, error: BaseModappError) -> bytes:
         # TODO: define json message structure for error
-        return orjson.dumps({"error": error})
+        if isinstance(error, InvalidArgumentError):
+            error_details = error.errors_by_fields
+        else:
+            error_details = error
+        return orjson.dumps({"error": error_details})
