@@ -105,7 +105,7 @@ class PydanticModel(PydanticBaseModel, BaseModel):
             data_as_dict = _decamelize_model_dict(model_dict, cls)
 
         try:
-            return cls(**model_dict)
+            return cls(**data_as_dict)
         except ValidationError as error:
             raise InvalidArgumentError(
                 # TODO: field name should follow camelCase option
