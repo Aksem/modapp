@@ -2,18 +2,27 @@ from enum import Enum, unique
 from typing import Dict
 
 
-class BaseModappError(Exception): ...
+class BaseModappError(Exception):
+    def __str__(self) -> str:
+        return repr(self)
 
 
 class InvalidArgumentError(BaseModappError):
     def __init__(self, errors_by_fields: Dict[str, str]):
         self.errors_by_fields = errors_by_fields
 
+    def __repr__(self) -> str:
+        return f'InvalidArgumentError({self.errors_by_fields})'
 
-class NotFoundError(BaseModappError): ...
+
+class NotFoundError(BaseModappError):
+    def __repr__(self) -> str:
+        return 'NotFoundError'
 
 
-class ServerError(BaseModappError): ...
+class ServerError(BaseModappError):
+    def __repr__(self) -> str:
+        return 'ServerError'
 
 
 # TODO: different base exceptions external and internal errors
