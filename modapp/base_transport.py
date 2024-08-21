@@ -115,7 +115,6 @@ class BaseTransport(ABC):
 
                 return handle_request(handler, self.converter, route)
         except (NotFoundError, InvalidArgumentError, ServerError) as error:
-            traceback.print_exc()
             raise error
         except BaseException as error:  # this should be in handler runner?
             logger.critical(f"Unhandled server error {error}")
