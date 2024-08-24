@@ -107,7 +107,7 @@ class WebSocketifyTransport(BaseTransport):
         @self.app.on_error
         def on_error(error, response: Response, request: Request) -> None:
             if isinstance(error, NotFoundError):
-                response.write_status(404).end("Not found")
+                response.write_status(404).end(self.converter.error_to_raw(error))
                 return
             elif isinstance(error, InvalidArgumentError):
                 response.write_status(422)
@@ -116,9 +116,11 @@ class WebSocketifyTransport(BaseTransport):
             elif isinstance(error, ServerError):
                 # does the same as return statement below, but shows explicitly mapping of ServerError to
                 # http error
-                response.write_status(500).end("Server error")
+                _error = ServerError()
+                response.write_status(500).end(self.converter.error_to_raw(_error))
                 return
-            response.write_status(500).end("Internal error")
+            _error = ServerError()
+            response.write_status(500).end(self.converter.error_to_raw(_error))
             logger.exception(error)
 
         for route_path, route in routes.items():
