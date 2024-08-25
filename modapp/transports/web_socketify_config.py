@@ -4,7 +4,9 @@ from modapp.base_transport import BaseTransportConfig
 
 
 class WebSocketifyTransportConfig(BaseTransportConfig):
-    port: NotRequired[int]
+    # if port is None, one will be selected automatically. Selected port is available in `port`
+    # attribute of the transport after its start
+    port: NotRequired[int | None]
     cors_allow: NotRequired[str | None]
 
 
