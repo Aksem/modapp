@@ -67,6 +67,13 @@ def _add_cors_headers_to_response(
 
 
 class WebSocketifyTransport(BaseTransport):
+    """
+    NOTE: web_socketify transport can start multiple instances on the same port. If you start two
+          or more instances of your application on the same port, you will get no errors and any
+          of those instances can accept requests (tested on Linux). It seems like socketify.py
+          doesn't support disabling this behavior(checked in v0.0.28).
+    """
+
     CONFIG_KEY = "web_socketify"
 
     def __init__(
@@ -75,6 +82,7 @@ class WebSocketifyTransport(BaseTransport):
         converter: BaseConverter | None = None,
     ) -> None:
         super().__init__(config, converter)
+        self.port: int = 0
         self.app: App | None = None
         self._static_dirs: dict[str, Path] = {}
         self._websockets_by_conn_id: dict[str, WebSocket] = {}
@@ -240,6 +248,8 @@ class WebSocketifyTransport(BaseTransport):
             response.end("Not found")
 
         port = self.config.get("port", DEFAULT_CONFIG["port"])
+        if port is None:
+            port = 0
 
         async def static_dir_index_handler(
             response: Response, request: Request, static_dir_path: Path
@@ -267,11 +277,14 @@ class WebSocketifyTransport(BaseTransport):
 
         self.app.any("/*", unknown_path_handler)
         assert isinstance(port, int), "Int expected to be an int"
+
+        def start_handler(config) -> None:
+            logger.info(f"Start web socketify server: localhost:{config.port}")
+            self.port = config.port
+
         self.app.listen(
             port,
-            lambda config: logger.info(
-                f"Start web socketify server: localhost:{config.port}"
-            ),
+            start_handler,
         )
         socketify_app_run_async(self.app)
 
