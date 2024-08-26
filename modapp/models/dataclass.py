@@ -1,3 +1,4 @@
+import inspect
 from dataclasses import asdict
 from typing import Any, Self, Type
 
@@ -70,16 +71,17 @@ def _decamelize_model_dict(
     assert humps is not None
     decamelized_data_dict: dict[str, Any] = {}
     for key, value in data_dict.items():
+        decamelized_key = humps.decamelize(key)
         # decamelize all keys and values that are also model instances
         try:
-            model_attr_type = model_cls.__annotations__[key]
+            model_attr_type = model_cls.__annotations__[decamelized_key]
         except KeyError:
-            logger.trace(f"Skip key {key} in data, because its type was not found in model")
+            logger.trace(f"Skip key {decamelized_key} in data, because its type was not found in model")
             continue
 
-        if issubclass(model_attr_type, DataclassModel):
+        if inspect.isclass(model_attr_type) and issubclass(model_attr_type, DataclassModel):
             decamelized_value = _decamelize_model_dict(value, model_attr_type)
         else:
             decamelized_value = value
-        decamelized_data_dict[humps.decamelize(key)] = decamelized_value
+        decamelized_data_dict[decamelized_key] = decamelized_value
     return decamelized_data_dict
