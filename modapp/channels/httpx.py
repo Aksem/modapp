@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
 
-import aiohttp
+import httpx
 from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
@@ -10,10 +10,7 @@ from modapp.client import BaseChannel
 T = TypeVar("T", bound=BaseModel)
 
 
-class AioHttpChannel(BaseChannel):
-    """
-    NOTE: aiohttp conflicts with web_socketify, requests cannot be sent in web_socketify transport
-    """
+class HttpxChannel(BaseChannel):
     def __init__(self, converter: BaseConverter, server_address: str) -> None:
         super().__init__(converter)
         self.server_address = server_address
@@ -22,20 +19,20 @@ class AioHttpChannel(BaseChannel):
     async def send_unary_unary(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
     ) -> T:
-        raw_data = self.converter.model_to_raw(request_data)
+        raw_data = self.converter.model_to_raw(request)
 
-        # TODO: save client session
-        async with aiohttp.ClientSession() as session:
-            # TODO: check route path
-            async with session.post(
+        # TODO: save client session ?
+        async with httpx.AsyncClient() as client:
+            # TODO: check route path ?
+            response = await client.post(
                 self.server_address + route_path.replace(".", "/").lower(),
-                data=raw_data,
-            ) as response:
-                raw_reply = await response.read()
+                content=raw_data,
+            )
+            raw_reply = await response.read()
 
         assert isinstance(
             raw_reply, bytes
@@ -46,7 +43,7 @@ class AioHttpChannel(BaseChannel):
     async def send_unary_stream(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:

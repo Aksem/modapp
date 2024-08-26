@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from ..base_converter import BaseConverter
 from ..base_model import BaseModel, ModelType
-from ..errors import InvalidArgumentError
+from ..errors import InvalidArgumentError, ServerError
 
 if TYPE_CHECKING:
     from ..errors import BaseModappError
@@ -32,6 +32,8 @@ class JsonConverter(BaseConverter):
         # TODO: define json message structure for error
         if isinstance(error, InvalidArgumentError):
             error_details = error.errors_by_fields
+        elif isinstance(error, ServerError):
+            error_details = "Server error"
         else:
             error_details = error
         return orjson.dumps({"error": error_details})
