@@ -46,8 +46,6 @@ class DataclassModel(BaseModel):
         return data_as_dict
 
 
-# TODO: handle containers like list, dict etc correctly
-
 def _camelize_model_dict(
     data_dict: dict[str, Any], model_instance: DataclassModel
 ) -> dict[str, Any]:
@@ -58,6 +56,24 @@ def _camelize_model_dict(
         model_attr_value = getattr(model_instance, key)
         if isinstance(model_attr_value, DataclassModel):
             camelized_value = _camelize_model_dict(value, model_attr_value)
+        elif isinstance(value, list):
+            # TODO: support all iterables: set etc.
+            list_result: list[Any] = []
+            for idx, dict_item in enumerate(value):
+                if isinstance(model_attr_value[idx], DataclassModel):
+                    list_result.append(_camelize_model_dict(dict_item, model_attr_value[idx]))
+                else:
+                    list_result.append(dict_item)
+            camelized_value = list_result
+        elif isinstance(value, dict):
+            # TODO: check whether user dicts are supported
+            dict_result: dict[Any, Any] = {}
+            for key, dict_value in value.items():
+                if isinstance(value, DataclassModel):
+                    dict_result[key] = _camelize_model_dict(dict_value, model_attr_value[key])
+                else:
+                    dict_result[key] = dict_value
+            camelized_value = dict_result
         else:
             camelized_value = value
         camelized_data_dict[humps.camelize(key)] = camelized_value
