@@ -32,7 +32,7 @@ class HttpxChannel(BaseChannel):
                 self.server_address + route_path.replace(".", "/").lower(),
                 content=raw_data,
             )
-            raw_reply = await response.read()
+            raw_reply = response.read()
 
         assert isinstance(
             raw_reply, bytes
