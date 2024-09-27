@@ -22,6 +22,7 @@ class HttpxChannel(BaseChannel):
         request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
+        timeout: float | None = 5,
     ) -> T:
         raw_data = self.converter.model_to_raw(request)
 
@@ -31,6 +32,7 @@ class HttpxChannel(BaseChannel):
             response = await client.post(
                 self.server_address + route_path.replace(".", "/").lower(),
                 content=raw_data,
+                timeout=timeout
             )
             raw_reply = response.read()
 

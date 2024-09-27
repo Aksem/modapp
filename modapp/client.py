@@ -31,6 +31,7 @@ class BaseChannel(ABC):
         request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
+        timeout: float | None = 5.0
     ) -> T:
         raise NotImplementedError()
 
