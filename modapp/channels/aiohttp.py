@@ -25,6 +25,7 @@ class AioHttpChannel(BaseChannel):
         request_data: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
+        timeout: float | None = 5,
     ) -> T:
         raw_data = self.converter.model_to_raw(request_data)
 
@@ -34,6 +35,7 @@ class AioHttpChannel(BaseChannel):
             async with session.post(
                 self.server_address + route_path.replace(".", "/").lower(),
                 data=raw_data,
+                timeout=aiohttp.ClientTimeout(total=timeout)
             ) as response:
                 raw_reply = await response.read()
 

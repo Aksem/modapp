@@ -19,11 +19,12 @@ class InMemoryChannel(BaseChannel):
     async def send_unary_unary(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[BaseModel],
         meta: Optional[Dict[str, Any]] = None,
+        timeout: float | None = 5,
     ) -> BaseModel:
-        raw_data = self.converter.model_to_raw(request_data)
+        raw_data = self.converter.model_to_raw(request)
         raw_reply = await self.transport.handle_request(route_path, raw_data)
         assert isinstance(
             raw_reply, bytes

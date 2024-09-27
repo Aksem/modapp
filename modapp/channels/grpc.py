@@ -55,14 +55,15 @@ class GrpcChannel(BaseChannel):
     async def send_unary_unary(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
+        timeout: float | None = 5,
     ) -> T:
         if self.__grpclib_channel is None:
             self.__grpclib_channel = self.__establish_channel()
 
-        raw_data = self.converter.model_to_raw(request_data)
+        raw_data = self.converter.model_to_raw(request)
         # TODO: grpc errors to modapp errors
         method = grpclib_client.UnaryUnaryMethod[bytes, bytes](
             self.__grpclib_channel,
@@ -80,14 +81,14 @@ class GrpcChannel(BaseChannel):
     async def send_unary_stream(
         self,
         route_path: str,
-        request_data: BaseModel,
+        request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[T]:
         if self.__grpclib_channel is None:
             self.__grpclib_channel = self.__establish_channel()
 
-        raw_data = self.converter.model_to_raw(request_data)
+        raw_data = self.converter.model_to_raw(request)
         method = grpclib_client.UnaryStreamMethod[bytes, bytes](
             self.__grpclib_channel,
             route_path,
