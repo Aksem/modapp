@@ -64,7 +64,7 @@ class BaseTransport(ABC):
         except InvalidArgumentError as error:
             logger.error(
                 f"Failed to convert request data to model: '{str(raw_data)}' for route"
-                f" '{route.path}'"
+                f" '{route.path}': {error.errors_by_fields}"
             )
             raise error
 
