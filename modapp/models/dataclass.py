@@ -68,11 +68,11 @@ def _camelize_model_dict(
         elif isinstance(value, dict):
             # TODO: check whether user dicts are supported
             dict_result: dict[Any, Any] = {}
-            for key, dict_value in value.items():
+            for dict_key, dict_value in value.items():
                 if isinstance(value, DataclassModel):
-                    dict_result[key] = _camelize_model_dict(dict_value, model_attr_value[key])
+                    dict_result[dict_key] = _camelize_model_dict(dict_value, model_attr_value[key])
                 else:
-                    dict_result[key] = dict_value
+                    dict_result[dict_key] = dict_value
             camelized_value = dict_result
         else:
             camelized_value = value

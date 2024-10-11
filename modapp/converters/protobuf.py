@@ -224,6 +224,15 @@ class ProtobufConverter(BaseConverter):
         except KeyError:
             raise ServerError(f"Proto for {model_obj.__modapp_path__} not found")
 
+        if model_obj.__model_config__.get("camelCase", False) is True:
+            # pydantic doesn't support changing `camelCase` option dynamically, so we need a
+            # workaround to transform camelCase back to snake case
+            import humps
+
+            model_dict: dict[str, Any] = {
+                humps.decamelize(key): value for key, value in model_dict.items()
+            }
+
         # serialize 'oneof' fields
         for oneof_name, oneof_descriptor in proto_cls.DESCRIPTOR.oneofs_by_name.items():
             if oneof_name in model_dict:

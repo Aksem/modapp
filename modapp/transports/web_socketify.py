@@ -115,20 +115,47 @@ class WebSocketifyTransport(BaseTransport):
         @self.app.on_error
         def on_error(error, response: Response, request: Request) -> None:
             if isinstance(error, NotFoundError):
-                response.write_status(404).end(self.converter.error_to_raw(error))
+                response.write_status(404)
+                # limitation of websocketify: headers can be set only after status, set in each
+                # branch separately
+                _add_cors_headers_to_response(
+                    response,
+                    self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                )
+                response.end(self.converter.error_to_raw(error))
                 return
             elif isinstance(error, InvalidArgumentError):
                 response.write_status(422)
+                # limitation of websocketify: headers can be set only after status, set in each
+                # branch separately
+                _add_cors_headers_to_response(
+                    response,
+                    self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                )
                 response.end(self.converter.error_to_raw(error))
                 return
             elif isinstance(error, ServerError):
                 # does the same as return statement below, but shows explicitly mapping of ServerError to
                 # http error
                 _error = ServerError()
-                response.write_status(500).end(self.converter.error_to_raw(_error))
+                response.write_status(500)
+                # limitation of websocketify: headers can be set only after status, set in each
+                # branch separately
+                _add_cors_headers_to_response(
+                    response,
+                    self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+                )
+                response.end(self.converter.error_to_raw(_error))
                 return
             _error = ServerError()
-            response.write_status(500).end(self.converter.error_to_raw(_error))
+            response.write_status(500)
+            # limitation of websocketify: headers can be set only after status, set in each
+            # branch separately
+            _add_cors_headers_to_response(
+                response,
+                self.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"]),
+            )
+            response.end(self.converter.error_to_raw(_error))
             logger.exception(error)
 
         for route_path, route in routes.items():
