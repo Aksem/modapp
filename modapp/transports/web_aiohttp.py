@@ -208,12 +208,16 @@ class WebAiohttpTransport(BaseTransport):
             logger.info(f"Host static dir: 127.0.0.1:{port}{static_dir_route}")
             self.app.add_routes(
                 [
+                    # we need 'get' to be able resolve index.html, but we need to keep in mind,
+                    # that 'get' with concrete path handles only this path, and static files are
+                    # subpathes. Use 'static' to add all subpathes
                     web.get(
                         static_dir_route,
                         partial(
                             static_dir_index_handler, static_dir_path=static_dir_path
                         ),
-                    )
+                    ),
+                    web.static(static_dir_route, static_dir_path)
                 ]
             )
 
