@@ -43,15 +43,15 @@ def _get_cors_headers(cors_allow: str | None) -> dict[str, str]:
     return headers
 
 
-def _exception_to_response(error: Exception, cors_allow: str | None) -> Exception:
+def _exception_to_response(error: Exception, converter: BaseConverter, cors_allow: str | None) -> Exception:
     if isinstance(error, NotFoundError):
-        return web.HTTPNotFound(headers=_get_cors_headers(cors_allow))
+        return web.HTTPNotFound(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
     elif isinstance(error, InvalidArgumentError):
-        return web.HTTPUnprocessableEntity(headers=_get_cors_headers(cors_allow))
+        return web.HTTPUnprocessableEntity(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
     elif isinstance(error, ServerError):
         # does the same as return statement below, but shows explicitly mapping of ServerError to
         # http error
-        return web.HTTPInternalServerError(headers=_get_cors_headers(cors_allow))
+        return web.HTTPInternalServerError(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
 
     return web.HTTPInternalServerError(headers=_get_cors_headers(cors_allow))
 
@@ -63,11 +63,10 @@ async def route_handler(
     cors_allow = transport.config.get("cors_allow", DEFAULT_CONFIG["cors_allow"])
 
     if route.proto_cardinality == Cardinality.UNARY_UNARY:
-        # TODO: handle errors
         try:
             result = await transport.got_request(route=route, raw_data=data, meta={})
         except Exception as error:
-            raise _exception_to_response(error, cors_allow)
+            raise _exception_to_response(error, transport.converter, cors_allow)
 
         if JsonConverter is not None and isinstance(transport.converter, JsonConverter):
             content_type = "application/json"
