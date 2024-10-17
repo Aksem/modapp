@@ -43,17 +43,41 @@ def _get_cors_headers(cors_allow: str | None) -> dict[str, str]:
     return headers
 
 
-def _exception_to_response(error: Exception, converter: BaseConverter, cors_allow: str | None) -> Exception:
+def _exception_to_response(
+    error: Exception, converter: BaseConverter, cors_allow: str | None
+) -> Exception:
     if isinstance(error, NotFoundError):
-        return web.HTTPNotFound(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
+        return web.HTTPNotFound(
+            headers=_get_cors_headers(cors_allow),
+            body=converter.error_to_raw(error),
+            content_type=_get_content_type(converter),
+        )
     elif isinstance(error, InvalidArgumentError):
-        return web.HTTPUnprocessableEntity(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
+        return web.HTTPUnprocessableEntity(
+            headers=_get_cors_headers(cors_allow),
+            body=converter.error_to_raw(error),
+            content_type=_get_content_type(converter),
+        )
     elif isinstance(error, ServerError):
         # does the same as return statement below, but shows explicitly mapping of ServerError to
         # http error
-        return web.HTTPInternalServerError(headers=_get_cors_headers(cors_allow), body=converter.error_to_raw(error))
+        return web.HTTPInternalServerError(
+            headers=_get_cors_headers(cors_allow),
+            body=converter.error_to_raw(error),
+            content_type=_get_content_type(converter),
+        )
 
     return web.HTTPInternalServerError(headers=_get_cors_headers(cors_allow))
+
+
+def _get_content_type(converter: BaseConverter) -> str:
+    if JsonConverter is not None and isinstance(converter, JsonConverter):
+        content_type = "application/json"
+    elif ProtobufConverter is not None and isinstance(converter, ProtobufConverter):
+        content_type = "application/octet-stream"
+    else:
+        content_type = ""
+    return content_type
 
 
 async def route_handler(
@@ -68,20 +92,11 @@ async def route_handler(
         except Exception as error:
             raise _exception_to_response(error, transport.converter, cors_allow)
 
-        if JsonConverter is not None and isinstance(transport.converter, JsonConverter):
-            content_type = "application/json"
-        elif ProtobufConverter is not None and isinstance(
-            transport.converter, ProtobufConverter
-        ):
-            content_type = "application/octet-stream"
-        else:
-            content_type = ""
-
         return web.Response(
             body=result,
             status=201,
             headers=_get_cors_headers(cors_allow),
-            content_type=content_type,
+            content_type=_get_content_type(transport.converter),
         )
     # elif route.proto_cardinality == Cardinality.UNARY_STREAM:
     #     conn_id = request.get_header("connection-id")
@@ -216,7 +231,7 @@ class WebAiohttpTransport(BaseTransport):
                             static_dir_index_handler, static_dir_path=static_dir_path
                         ),
                     ),
-                    web.static(static_dir_route, static_dir_path)
+                    web.static(static_dir_route, static_dir_path),
                 ]
             )
 
