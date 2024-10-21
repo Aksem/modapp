@@ -41,14 +41,31 @@ class RawCodec(CodecBase):
 
 
 def modapp_error_to_grpc(
-    modapp_error: BaseModappError, converter: BaseConverter
+    modapp_error: BaseModappError, converter: BaseConverter, error_details: bool
 ) -> GRPCError:
     if isinstance(modapp_error, NotFoundError):
-        return GRPCError(status=GrpcStatus.NOT_FOUND)
+        if len(modapp_error.args) > 0 and isinstance(modapp_error.args[0], str):
+            message = modapp_error.args[0]
+        else:
+            message = None
+        return GRPCError(status=GrpcStatus.NOT_FOUND, message=message)
     elif isinstance(modapp_error, InvalidArgumentError):
+        if error_details:
+            details=converter.error_to_raw(modapp_error)
+            message = None
+        else:
+            message = ''
+            for field_name, field_value in modapp_error.errors_by_fields.items():
+                if field_name == 'non_field_errors' or field_name == 'nonFieldErrors':
+                    message += field_value + '\n'
+                else:
+                    message += f'{field_name}: {field_value}\n'
+            message = message.rstrip('\n')
+            details = None
         return GRPCError(
             status=GrpcStatus.INVALID_ARGUMENT,
-            details=converter.error_to_raw(modapp_error),
+            message=message,
+            details=details
         )
     elif isinstance(modapp_error, ServerError):
         # does the same as return statement below, but shows explicitly mapping of ServerError to
@@ -65,10 +82,12 @@ class HandlerStorage:
         request_callback: Callable[
             [Route, bytes, Metadata], Coroutine[Any, Any, bytes | AsyncIterator[bytes]]
         ],
+        error_details: bool,
     ) -> None:
         self.routes = routes
         self.converter = converter
         self.request_callback = request_callback
+        self.error_details = error_details
 
     def __mapping__(self) -> dict[str, Handler]:
         result: dict[str, Handler] = {}
@@ -91,7 +110,9 @@ class HandlerStorage:
                         await stream.send_message(response)
                 except BaseModappError as modapp_error:
                     logger.trace(f"Grpc request handling error: {modapp_error}")
-                    raise modapp_error_to_grpc(modapp_error, self.converter)
+                    raise modapp_error_to_grpc(
+                        modapp_error, self.converter, self.error_details
+                    )
                 except Exception as e:
                     logger.exception(e)
 
@@ -120,7 +141,12 @@ class GrpcTransport(BaseTransport):
 
     @override
     async def start(self, routes: RoutesDict) -> None:
-        handler_storage = HandlerStorage(routes, self.converter, self.got_request)
+        error_details = self.config.get(
+            "error_details", DEFAULT_CONFIG["error_details"]
+        )
+        handler_storage = HandlerStorage(
+            routes, self.converter, self.got_request, error_details
+        )
         self.server = Server([handler_storage], codec=RawCodec())
 
         # listen(self.server, RecvRequest, recv_request)
