@@ -71,7 +71,7 @@ class BaseTransport(ABC):
         logger.opt(lazy=True).debug(
             f"Request to {route.path}: {{request_data}}",
             request_data=lambda: json.dumps(
-                request_data.to_dict(), indent=4, ensure_ascii=False
+                request_data.to_dict(), indent=4, ensure_ascii=False, default=str
             ),
         )
 
@@ -87,7 +87,7 @@ class BaseTransport(ABC):
                 logger.opt(lazy=True).debug(
                     f"Response on {route.path}: {{reply_str}}",
                     reply_str=lambda: json.dumps(
-                        reply.to_dict(), indent=4, ensure_ascii=False
+                        reply.to_dict(), indent=4, ensure_ascii=False, default=str
                     ),
                 )
                 return proto_reply
