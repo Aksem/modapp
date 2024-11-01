@@ -29,6 +29,7 @@ from modapp.errors import (
 from modapp.routing import Cardinality, Route
 
 from .web_aiohttp_config import DEFAULT_CONFIG, WebAiohttpTransportConfig
+from .utils.free_port import get_free_port
 
 if TYPE_CHECKING:
     from modapp.routing import RoutesDict
@@ -214,8 +215,8 @@ class WebAiohttpTransport(BaseTransport):
         self.app.add_routes(app_routes)
 
         port = self.config.get("port", DEFAULT_CONFIG["port"])
-        if port is None:
-            port = 0
+        if port is None or port == 0:
+            port = get_free_port()
         assert isinstance(port, int), "Int expected to be an int"
 
         for static_dir_route, static_dir_path in self._static_dirs.items():
@@ -242,7 +243,8 @@ class WebAiohttpTransport(BaseTransport):
         site = web.TCPSite(self._runner, "127.0.0.1", port)
         await site.start()
         self.port = port
-        logger.info(f"Start web aiohttp server: localhost:{port}")
+        logger.info(f"Start server: 127.0.0.1:{port}")
+        logger.trace(f"Start web aiohttp server: 127.0.0.1:{port}")
 
     @override
     def stop(self) -> None:
