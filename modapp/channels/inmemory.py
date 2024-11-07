@@ -4,7 +4,7 @@ from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_model import BaseModel
-from modapp.client import BaseChannel
+from modapp.client import BaseChannel, Stream
 from modapp.transports.inmemory import InMemoryTransport
 
 T = TypeVar("T", bound=BaseModel)
@@ -38,14 +38,22 @@ class InMemoryChannel(BaseChannel):
         request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
-    ) -> AsyncIterator[T]:
+    ) -> Stream[T]:
         raw_data = self.converter.model_to_raw(request)
         reply_iterator = await self.transport.handle_request(route_path, raw_data)
         assert isinstance(
             reply_iterator, AsyncIterator
         ), "Reply on unary-stream request should be async iterator of bytes"
-        async for raw_message in reply_iterator:
-            yield self.converter.raw_to_model(raw_message, reply_cls)
+        
+        async def generator():
+            async for raw_message in reply_iterator:
+                yield self.converter.raw_to_model(raw_message, reply_cls)
+
+        async def on_end():
+            # TODO
+            raise NotImplementedError()
+
+        return Stream(result_iterator=generator(), on_end=on_end)
 
     @override
     async def send_stream_unary(self) -> None:
@@ -56,5 +64,5 @@ class InMemoryChannel(BaseChannel):
         raise NotImplementedError()
 
     @override
-    def __aexit__(self) -> None:
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         pass

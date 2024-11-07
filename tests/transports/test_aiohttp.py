@@ -88,7 +88,9 @@ async def create_app() -> AsyncGenerator[tuple[Modapp, int], None]:
     config = WebAiohttpTransportConfig(port=free_port)
     web_transport = WebAiohttpTransport(config=config, converter=converter)
 
-    app = Modapp({web_transport})
+    app = Modapp({web_transport},
+                 # endpoints temporarily used in test_server
+                 keep_running_endpoint=True, healthcheck_endpoint=True)
     app.include_router(router)
     await app.run_async()
     try:

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any, Coroutine
 
 from loguru import logger
 
-from modapp.routing import APIRouter, RouteMeta
+from modapp.routing import APIRouter, Cardinality, RouteMeta
+from modapp.endpoints import keep_running as keep_running_endpoint_handler, health_check
 
 if TYPE_CHECKING:
     from typing import Callable
@@ -43,6 +44,8 @@ class Modapp:
         transports: set[BaseTransport],
         config: dict[str, BaseTransportConfig] | None = None,
         dependency_overrides: DependencyOverrides | None = None,
+        keep_running_endpoint: bool = False,
+        healthcheck_endpoint: bool = False,
     ) -> None:
         self.transports = transports
         self.config: dict[str, BaseTransportConfig] = {}
@@ -50,6 +53,22 @@ class Modapp:
             self.config = config
         self.dependency_overrides = dependency_overrides
         self.router = APIRouter(dependency_overrides=dependency_overrides)
+        if keep_running_endpoint:
+            self.router.add_endpoint(
+                route_meta=RouteMeta(
+                    path="/modapp.ModappService/KeepRunningUntilDisconnect",
+                    cardinality=Cardinality.UNARY_STREAM,
+                ),
+                handler=keep_running_endpoint_handler,
+            )
+        if healthcheck_endpoint:
+            self.router.add_endpoint(
+                route_meta=RouteMeta(
+                    path="/modapp.ModappService/GetHealthStatus",
+                    cardinality=Cardinality.UNARY_UNARY,
+                ),
+                handler=health_check,
+            )
 
     def run(self) -> None:
         try:

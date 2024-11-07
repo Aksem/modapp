@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar
 
 from grpclib import client as grpclib_client
 from grpclib.const import Status as GrpcStatus
@@ -8,13 +8,15 @@ from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_model import BaseModel
-from modapp.client import BaseChannel
+from modapp.client import BaseChannel, Stream
 from modapp.errors import (
     BaseModappError,
     InvalidArgumentError,
     NotFoundError,
     ServerError,
 )
+from modapp.multi_with import MultiWith
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -46,7 +48,7 @@ class GrpcChannel(BaseChannel):
         return grpclib_client.Channel(self.__host, self.__port, codec=RawCodec())
 
     @override
-    def __aexit__(self) -> None:
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         if self.__grpclib_channel is not None:
             self.__grpclib_channel.close()
             self.__grpclib_channel = None
@@ -84,7 +86,7 @@ class GrpcChannel(BaseChannel):
         request: BaseModel,
         reply_cls: Type[T],
         meta: Optional[Dict[str, Any]] = None,
-    ) -> AsyncIterator[T]:
+    ) -> Stream[T]:
         if self.__grpclib_channel is None:
             self.__grpclib_channel = self.__establish_channel()
 
@@ -95,13 +97,27 @@ class GrpcChannel(BaseChannel):
             None,  # type: ignore
             None,  # type: ignore
         )
-        try:
-            async with method.open(timeout=0) as stream:
-                await stream.send_message(raw_data, end=True)
-                async for raw_message in stream:
-                    yield self.converter.raw_to_model(raw_message, reply_cls)
-        except GRPCError as grpc_error:
-            raise self.__grpc_error_to_modapp(grpc_error)
+
+        stream_context_manager = MultiWith[grpclib_client.Stream](method.open(timeout=0))
+
+        async def generator():
+            try:
+                # async with method.open(timeout=0) as stream:
+                async with stream_context_manager as stream:
+                    await stream.send_message(raw_data, end=True)
+                    async for raw_message in stream:
+                        yield self.converter.raw_to_model(raw_message, reply_cls)
+            except GRPCError as grpc_error:
+                raise self.__grpc_error_to_modapp(grpc_error)
+
+        async def on_end():
+            try:
+                async with stream_context_manager as stream:
+                    await stream.end()
+            except GRPCError as grpc_error:
+                raise self.__grpc_error_to_modapp(grpc_error)
+
+        return Stream(result_iterator=generator(), on_end=on_end)
 
     @override
     async def send_stream_unary(self) -> None:

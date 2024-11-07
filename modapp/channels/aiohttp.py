@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, AsyncIterator, Type, TypeVar
+from typing import Any, Type, TypeVar
 
 import aiohttp
 from loguru import logger
@@ -8,7 +8,7 @@ from typing_extensions import override
 
 from modapp.base_converter import BaseConverter
 from modapp.base_model import BaseModel
-from modapp.client import BaseChannel
+from modapp.client import BaseChannel, Stream
 
 T = TypeVar("T", bound=BaseModel)
 StreamClosedMessage = object()
@@ -60,7 +60,7 @@ class AioHttpChannel(BaseChannel):
         request: BaseModel,
         reply_cls: Type[T],
         meta: dict[str, Any] | None = None,
-    ) -> AsyncIterator[T]:
+    ) -> Stream[T]:
         if self._ws is None:
             await self._connect_to_ws()
             assert self._ws is not None
@@ -82,13 +82,24 @@ class AioHttpChannel(BaseChannel):
 
         stream_queue = asyncio.Queue()
         self._msg_queue_by_stream_id[stream_id] = stream_queue
-        while True:
-            raw_message = await stream_queue.get()
-            if raw_message == StreamClosedMessage:
-                del self._msg_queue_by_stream_id[stream_id]
-                break
-            message = self.converter.raw_to_model(raw_message, reply_cls)
-            yield message
+        
+        async def generator():
+            while True:
+                raw_message = await stream_queue.get()
+                if raw_message == StreamClosedMessage:
+                    del self._msg_queue_by_stream_id[stream_id]
+                    break
+                message = self.converter.raw_to_model(raw_message, reply_cls)
+                yield message
+        
+        async def on_end():
+            assert self._ws is not None
+            await self._ws.send_str(json.dumps({ 'streamId': stream_id, 'end': True }))
+            del self._msg_queue_by_stream_id[stream_id]
+            if len(self._msg_queue_by_stream_id) == 0:
+                await self._close_ws()
+
+        return Stream(generator(), on_end=on_end)
 
     @override
     async def send_stream_unary(self) -> None:
@@ -100,12 +111,7 @@ class AioHttpChannel(BaseChannel):
 
     @override
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        if self._session is not None:
-            await self._session.__aexit__(exc_type, exc, tb)
-            self._session = None
-        if self._ws is not None:
-            await self._ws.__aexit__(exc_type, exc, tb)
-            self._ws = None
+        await self._close_ws(exc_type, exc, tb)
 
     async def _connect_to_ws(self):
         if self._session is not None and self._ws is not None:
@@ -136,6 +142,14 @@ class AioHttpChannel(BaseChannel):
         self._ws_message_processing_task = asyncio.create_task(
             self.process_ws_messages()
         )
+
+    async def _close_ws(self, exc_type = None, exc = None, tb = None):
+        if self._session is not None:
+            await self._session.__aexit__(exc_type, exc, tb)
+            self._session = None
+        if self._ws is not None:
+            await self._ws.__aexit__(exc_type, exc, tb)
+            self._ws = None
 
     async def process_ws_messages(self):
         assert self._ws is not None
