@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import platform
-from typing import TYPE_CHECKING, Any, Coroutine
+from typing import TYPE_CHECKING, Any, Coroutine, Sequence
 
 from loguru import logger
 
@@ -41,7 +41,7 @@ def run_in_better_loop(coroutine: Callable[..., Coroutine[Any, Any, Any]]) -> No
 class Modapp:
     def __init__(
         self,
-        transports: set[BaseTransport],
+        transports: Sequence[BaseTransport],
         config: dict[str, BaseTransportConfig] | None = None,
         dependency_overrides: DependencyOverrides | None = None,
         keep_running_endpoint: bool = False,
