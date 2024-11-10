@@ -282,6 +282,9 @@ class WebAiohttpTransport(BaseTransport):
                     ws.exception())
 
         sending_task.cancel()
+        for task in self._sending_to_ws_tasks:
+            task.cancel()
+        self._sending_to_ws_tasks = []
         logger.info(f"Websocket connection '{conn_id}' closed")
         return ws
 
@@ -304,6 +307,7 @@ class WebAiohttpTransport(BaseTransport):
 
         for task in self._sending_to_ws_tasks:
             task.cancel()
+        self._sending_to_ws_tasks = []
 
 
 __all__ = ["WebAiohttpTransport", "WebAiohttpTransportConfig"]
