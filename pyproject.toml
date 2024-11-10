@@ -21,6 +21,7 @@ anyio = {version = "^4.4.0", optional = true}
 typing-extensions = "^4.12.2"
 pyhumps = {version = "^3.8.0", optional = true}
 httpx = {version = "^0.27.0", optional = true}
+platformdirs = {version = "^4.3.6", optional = true}
 
 [tool.poetry.extras]
 uvloop = ["uvloop", "winloop"]
@@ -31,6 +32,7 @@ web_aiohttp = ["aiohttp"]
 anyio = ["anyio"]
 case_change = ["pyhumps"]
 web_httpx = ["httpx"]
+platformdirs = ["platformdirs"]
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.13.2"
