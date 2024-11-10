@@ -6,7 +6,7 @@ from loguru import logger
 
 
 def save_logs_to_file(file_path: Path, log_level: str = "INFO", rotation: str = "10 MB", retention = 3, stdout: bool = True):
-    if stdout:
+    if stdout is True:
         if isinstance(sys.stdout, io.TextIOWrapper):
             # reconfigure to be able to handle special symbols
             sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
