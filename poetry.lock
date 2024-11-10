@@ -2983,4 +2983,4 @@ web-socketify = ["socketify"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "e502f19b7672bc729312c156618cc4837e084ff87affc084534222d31d93860f"
+content-hash = "87e8f5d495c2883b45f20bd1f1392ddcc3fe727d26e375ae0b4b45722bcdec04"
