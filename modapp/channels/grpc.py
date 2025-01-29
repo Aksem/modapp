@@ -96,7 +96,7 @@ class GrpcChannel(BaseChannel):
             None,  # type: ignore
         )
         try:
-            async with method.open(timeout=0) as stream:
+            async with method.open(timeout=None) as stream:
                 await stream.send_message(raw_data, end=True)
                 async for raw_message in stream:
                     yield self.converter.raw_to_model(raw_message, reply_cls)
